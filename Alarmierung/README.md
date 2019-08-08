@@ -25,8 +25,9 @@ Ein einmal geschalteter Alarm wird nicht automatisch deaktiviert, dieser muss ma
 
 ### 3. Software-Installation
 
-Über das Modul-Control folgende URL hinzufügen.  
-`git://github.com/symcon/SymconMisc.git`  
+* Über den Modul Store das Modul Alarmierung installieren.
+* Alternativ über das Modul Control folgende URL hinzufügen:
+´https://github.com/symcon/Alarmierung` 
 
 ### 4. Einrichten der Instanzen in IP-Symcon
 
