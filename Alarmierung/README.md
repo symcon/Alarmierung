@@ -73,3 +73,7 @@ Die Funktion liefert keinerlei Rückgabewert.
 Schaltet den Alarm mit der InstanzID $InstanzID auf den Wert $Value (true = An; false = Aus).  
 Die Funktion liefert keinerlei Rückgabewert.  
 `ARM_SetAlert(12345, false);`
+
+`integer ARM_getLastAlertID(integer $InstanzID);`
+Gibt die Variable zurück, die als letztes einen Alarm ausgelöst hat.
+`ARM_getLastAlertID(12345);`
