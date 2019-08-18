@@ -21,7 +21,7 @@ Ein einmal geschalteter Alarm wird nicht automatisch deaktiviert, dieser muss ma
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 4.2
+- IP-Symcon ab Version 5.1
 
 ### 3. Software-Installation
 
@@ -74,6 +74,6 @@ Schaltet den Alarm mit der InstanzID $InstanzID auf den Wert $Value (true = An; 
 Die Funktion liefert keinerlei Rückgabewert.  
 `ARM_SetAlert(12345, false);`
 
-`integer ARM_getLastAlertID(integer $InstanzID);`
-Gibt die Variable zurück, die als letztes einen Alarm ausgelöst hat.
-`ARM_getLastAlertID(12345);`
+`integer ARM_GetLastAlertID(integer $InstanzID);`
+Gibt die ID der Variable zurück, die als letztes einen Alarm ausgelöst hat.
+`ARM_GetLastAlertID(12345);`

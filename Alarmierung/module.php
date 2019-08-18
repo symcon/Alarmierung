@@ -132,7 +132,7 @@ if (!defined('VM_UPDATE')) {
 		
 		}
 
-		public function getLastAlertID() {
+		public function GetLastAlertID() {
 			return $this->ReadAttributeInteger('LastAlert');
 		}
 		
