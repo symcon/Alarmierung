@@ -15,6 +15,7 @@ if (!defined('VM_UPDATE')) {
 
 			$this->RegisterPropertyString("Sensors", "[]");
 			$this->RegisterPropertyString("Targets", "[]");
+			$this->RegisterAttributeInteger('LastAlert', 0);
 
 		}
 
@@ -59,11 +60,13 @@ if (!defined('VM_UPDATE')) {
 				case "~Window.Hoppe":
 					if($SourceValue == 0 || $SourceValue == 2) {
 						$this->SetAlert(true);
+						$this->WriteAttributeInteger('LastAlert',$SourceID);
 					}
 					break;
 				case "~Window.HM":
 					if($SourceValue == 1 || $SourceValue == 2) {
 						$this->SetAlert(true);
+						$this->WriteAttributeInteger('LastAlert',$SourceID);
 					}
 					break;
 				case "~Lock.Reversed":
@@ -72,11 +75,13 @@ if (!defined('VM_UPDATE')) {
 				case "~Window.Reversed":
 					if(!$SourceValue) {
 						$this->SetAlert(true);
+						$this->WriteAttributeInteger('LastAlert',$SourceID);
 					}
 					break;
 				default:
 					if($SourceValue) {
 						$this->SetAlert(true);
+						$this->WriteAttributeInteger('LastAlert',$SourceID);
 					}
 					break;
 			}
@@ -125,6 +130,10 @@ if (!defined('VM_UPDATE')) {
 			
 			SetValue($this->GetIDForIdent("Alert"), $Status);
 		
+		}
+
+		public function GetLastAlertID() {
+			return $this->ReadAttributeInteger('LastAlert');
 		}
 		
 		public function ConvertToNewVersion(){
