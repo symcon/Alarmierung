@@ -10,5 +10,6 @@
 	"parentRequirements": [],
 	"childRequirements": [],
 	"implemented": [],
-	"prefix": "ARM"
+	"prefix": "ARM",
+	"url": "https://github.com/symcon/Alarmierung/tree/master/Alarmierung"
 }
