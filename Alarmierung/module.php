@@ -42,7 +42,7 @@ declare(strict_types=1);
             }
         }
 
-        public function TriggerAlert(int $SourceID, int $SourceValue)
+        public function TriggerAlert(int $SourceID, $SourceValue)
         {
 
             //Only enable alarming if our module is active
