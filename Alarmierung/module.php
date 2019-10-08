@@ -30,8 +30,20 @@ if (!defined('VM_UPDATE')) {
             $this->EnableAction('Alert');
 
             $sensors = json_decode($this->ReadPropertyString('Sensors'));
+            $targets = json_decode($this->ReadPropertyString('Targets'));
+
+            //Deleting all References
+            foreach ($this->GetReferenceList() as $referenceID) {
+                $this->UnregisterReference($referenceID);
+            }
+
+            //Adding references for targets
+            foreach ($targets as $target) {
+                $this->RegisterReference($target->ID);
+            }
             foreach ($sensors as $sensor) {
                 $this->RegisterMessage($sensor->ID, VM_UPDATE);
+                $this->RegisterReference($sensor->ID);
             }
         }
 
