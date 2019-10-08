@@ -199,7 +199,6 @@ declare(strict_types=1);
             }
         }
 
-
         public function GetConfigurationForm()
         {
             if ($this->ReadPropertyString('Sensors') == '[]' && $this->ReadPropertyString('Targets') == '[]') {
