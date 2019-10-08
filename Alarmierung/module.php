@@ -199,20 +199,6 @@ declare(strict_types=1);
             }
         }
 
-        private function CreateVariableByIdent($id, $ident, $name, $type, $profile = '')
-        {
-            $vid = @IPS_GetObjectIDByIdent($ident, $id);
-            if ($vid === false) {
-                $vid = IPS_CreateVariable($type);
-                IPS_SetParent($vid, $id);
-                IPS_SetName($vid, $name);
-                IPS_SetIdent($vid, $ident);
-                if ($profile != '') {
-                    IPS_SetVariableCustomProfile($vid, $profile);
-                }
-            }
-            return $vid;
-        }
 
         public function GetConfigurationForm()
         {
