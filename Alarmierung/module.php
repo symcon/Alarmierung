@@ -1,12 +1,6 @@
 <?php
 
 declare(strict_types=1);
-if (!defined('IPS_BASE')) {
-    define('IPS_BASE', 10000);
-}
-if (!defined('VM_UPDATE')) {
-    define('VM_UPDATE', IPS_BASE + 603);
-}
 
     class Alarmierung extends IPSModule
     {
