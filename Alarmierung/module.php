@@ -89,10 +89,7 @@ declare(strict_types=1);
             foreach ($targets as $targetID) {
                 //only allow links
                 if (IPS_VariableExists($targetID->ID)) {
-                    $o = IPS_GetObject($targetID->ID);
                     $v = IPS_GetVariable($targetID->ID);
-
-                    $actionID = $this->GetProfileAction($v);
                     $profileName = $this->GetProfileName($v);
 
                     //If we somehow do not have a profile take care that we do not fail immediately
@@ -110,14 +107,7 @@ declare(strict_types=1);
                     } else {
                         $actionValue = $Status;
                     }
-
-                    if (IPS_InstanceExists($actionID)) {
-                        IPS_RequestAction($actionID, $o['ObjectIdent'], $actionValue);
-                    } else {
-                        if (IPS_ScriptExists($actionID)) {
-                            echo IPS_RunScriptWaitEx($actionID, ['VARIABLE' => $targetID->ID, 'VALUE' => $actionValue]);
-                        }
-                    }
+                    RequestAction($targetID->ID, $actionValue);
                 }
             }
 
