@@ -1,12 +1,6 @@
 <?php
 
 declare(strict_types=1);
-if (!defined('IPS_BASE')) {
-    define('IPS_BASE', 10000);
-}
-if (!defined('VM_UPDATE')) {
-    define('VM_UPDATE', IPS_BASE + 603);
-}
 
     class Alarmierung extends IPSModule
     {
@@ -60,7 +54,7 @@ if (!defined('VM_UPDATE')) {
             }
         }
 
-        public function TriggerAlert(int $SourceID, int $SourceValue)
+        public function TriggerAlert(int $SourceID, $SourceValue)
         {
 
             //Only enable alarming if our module is active
@@ -107,10 +101,7 @@ if (!defined('VM_UPDATE')) {
             foreach ($targets as $targetID) {
                 //only allow links
                 if (IPS_VariableExists($targetID->ID)) {
-                    $o = IPS_GetObject($targetID->ID);
                     $v = IPS_GetVariable($targetID->ID);
-
-                    $actionID = $this->GetProfileAction($v);
                     $profileName = $this->GetProfileName($v);
 
                     //If we somehow do not have a profile take care that we do not fail immediately
@@ -128,14 +119,7 @@ if (!defined('VM_UPDATE')) {
                     } else {
                         $actionValue = $Status;
                     }
-
-                    if (IPS_InstanceExists($actionID)) {
-                        IPS_RequestAction($actionID, $o['ObjectIdent'], $actionValue);
-                    } else {
-                        if (IPS_ScriptExists($actionID)) {
-                            echo IPS_RunScriptWaitEx($actionID, ['VARIABLE' => $targetID->ID, 'VALUE' => $actionValue]);
-                        }
-                    }
+                    RequestAction($targetID->ID, $actionValue);
                 }
             }
 
@@ -225,21 +209,6 @@ if (!defined('VM_UPDATE')) {
             } else {
                 return $v['VariableAction'];
             }
-        }
-
-        private function CreateVariableByIdent($id, $ident, $name, $type, $profile = '')
-        {
-            $vid = @IPS_GetObjectIDByIdent($ident, $id);
-            if ($vid === false) {
-                $vid = IPS_CreateVariable($type);
-                IPS_SetParent($vid, $id);
-                IPS_SetName($vid, $name);
-                IPS_SetIdent($vid, $ident);
-                if ($profile != '') {
-                    IPS_SetVariableCustomProfile($vid, $profile);
-                }
-            }
-            return $vid;
         }
 
         public function GetConfigurationForm()
