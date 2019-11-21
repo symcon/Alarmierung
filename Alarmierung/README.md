@@ -31,7 +31,7 @@ Ein einmal geschalteter Alarm wird nicht automatisch deaktiviert, dieser muss ma
 
 ### 4. Einrichten der Instanzen in IP-Symcon
 
-- Unter "Instanz hinzufügen" ist das 'Alarmierung'-Modul unter dem Hersteller '(Gerät)' aufgeführt.  
+- Unter "Instanz hinzufügen" kann das 'Alarmierung'-Modul mithilfe der Schnellsuche einfach gefunden werden.  
 
 __Konfigurationsseite__:
 
