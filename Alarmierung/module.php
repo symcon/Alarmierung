@@ -65,14 +65,14 @@ declare(strict_types=1);
             switch ($this->GetProfileName(IPS_GetVariable($SourceID))) {
                 case '~Window.Hoppe':
                     if ($SourceValue == 0 || $SourceValue == 2) {
-                        $this->SetAlert(true);
                         $this->WriteAttributeInteger('LastAlert', $SourceID);
+                        $this->SetAlert(true);
                     }
                     break;
                 case '~Window.HM':
                     if ($SourceValue == 1 || $SourceValue == 2) {
-                        $this->SetAlert(true);
                         $this->WriteAttributeInteger('LastAlert', $SourceID);
+                        $this->SetAlert(true);
                     }
                     break;
                 case '~Lock.Reversed':
@@ -80,14 +80,14 @@ declare(strict_types=1);
                 case '~Presence.Reversed':
                 case '~Window.Reversed':
                     if (!$SourceValue) {
-                        $this->SetAlert(true);
                         $this->WriteAttributeInteger('LastAlert', $SourceID);
+                        $this->SetAlert(true);
                     }
                     break;
                 default:
                     if ($SourceValue) {
-                        $this->SetAlert(true);
                         $this->WriteAttributeInteger('LastAlert', $SourceID);
+                        $this->SetAlert(true);
                     }
                     break;
             }
