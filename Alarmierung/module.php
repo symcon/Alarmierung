@@ -12,19 +12,25 @@ declare(strict_types=1);
             $this->RegisterPropertyString('Sensors', '[]');
             $this->RegisterPropertyString('Targets', '[]');
             $this->RegisterAttributeInteger('LastAlert', 0);
+
+            //Variables
+            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
+            $this->EnableAction('Active');
+            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 0);
+            $this->EnableAction('Alert');
+            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox');
         }
 
         public function ApplyChanges()
         {
             //Never delete this line!
             parent::ApplyChanges();
-            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
-            $this->EnableAction('Active');
-            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 0);
-            $this->EnableAction('Alert');
 
             $sensors = json_decode($this->ReadPropertyString('Sensors'));
             $targets = json_decode($this->ReadPropertyString('Targets'));
+
+            //Update active sensors
+            $this->updateActive();
 
             //Deleting all References
             foreach ($this->GetReferenceList() as $referenceID) {
@@ -49,6 +55,7 @@ declare(strict_types=1);
             foreach ($sensors as $sensor) {
                 if ($sensor->ID == $SenderID) {
                     $this->TriggerAlert($sensor->ID, GetValue($sensor->ID));
+                    $this->updateActive();
                     return;
                 }
             }
@@ -62,34 +69,9 @@ declare(strict_types=1);
                 return;
             }
 
-            switch ($this->GetProfileName(IPS_GetVariable($SourceID))) {
-                case '~Window.Hoppe':
-                    if ($SourceValue == 0 || $SourceValue == 2) {
-                        $this->WriteAttributeInteger('LastAlert', $SourceID);
-                        $this->SetAlert(true);
-                    }
-                    break;
-                case '~Window.HM':
-                    if ($SourceValue == 1 || $SourceValue == 2) {
-                        $this->WriteAttributeInteger('LastAlert', $SourceID);
-                        $this->SetAlert(true);
-                    }
-                    break;
-                case '~Lock.Reversed':
-                case '~Battery.Reversed':
-                case '~Presence.Reversed':
-                case '~Window.Reversed':
-                    if (!$SourceValue) {
-                        $this->WriteAttributeInteger('LastAlert', $SourceID);
-                        $this->SetAlert(true);
-                    }
-                    break;
-                default:
-                    if ($SourceValue) {
-                        $this->WriteAttributeInteger('LastAlert', $SourceID);
-                        $this->SetAlert(true);
-                    }
-                    break;
+            if ($this->getAlertValue($SourceID, $SourceValue)) {
+                $this->WriteAttributeInteger('LastAlert', $SourceID);
+                $this->SetAlert(true);
             }
         }
 
@@ -211,6 +193,11 @@ declare(strict_types=1);
             }
         }
 
+        private function profileInverted($VariableID)
+        {
+            return substr($this->GetProfileName(IPS_GetVariable($VariableID)), -strlen('.Reversed')) === '.Reversed';
+        }
+
         public function GetConfigurationForm()
         {
             if ($this->ReadPropertyString('Sensors') == '[]' && $this->ReadPropertyString('Targets') == '[]') {
@@ -284,5 +271,49 @@ declare(strict_types=1);
             }
 
             return json_encode($formdata);
+        }
+
+        private function getAlertValue($variableID, $value)
+        {
+            if ($this->profileInverted($variableID)) {
+                return boolval(!$value);
+            }
+
+            switch ($this->GetProfileName(IPS_GetVariable($variableID))) {
+                case '~Window.Hoppe':
+                    if ($value == 0 || $value == 2) {
+                        return true;
+                    }
+
+                    break;
+                case '~Window.HM':
+                    if ($value == 1 || $value == 2) {
+                        return true;
+                    }
+
+                    break;
+                default:
+                    return boolval($value);
+            }
+        }
+
+        private function updateActive()
+        {
+            $sensors = json_decode($this->ReadPropertyString('Sensors'), true);
+
+            $activeSensors = '';
+            foreach ($sensors as $sensor) {
+                $sensorID = $sensor['ID'];
+                if ($this->getAlertValue($sensorID, GetValue($sensorID))) {
+                    $activeSensors .= '- ' . IPS_GetLocation($sensorID) . "\n";
+                }
+            }
+            if ($activeSensors == '') {
+                IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), true);
+                return;
+            }
+
+            $this->SetValue('ActiveSensors', $activeSensors);
+            IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
         }
     }

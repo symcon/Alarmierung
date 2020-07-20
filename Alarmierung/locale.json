@@ -9,7 +9,8 @@
 			"Add/Delete target variables, which react on the alarm" : "Hinzufügen/Löschen von Zielvariablen, welche bei Alarm geschaltet werden",
 			"Sensorvariables" : "Sensorvariablen",
 			"Targetvariables" : "Zielvariablen",
-			"Not found!" : "Nicht gefunden!"
+			"Not found!" : "Nicht gefunden!",
+			"Active Sensors": "Aktive Sensoren"
 		}
 	}
 }
