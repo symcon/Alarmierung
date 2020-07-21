@@ -13,7 +13,7 @@ declare(strict_types=1);
             $this->RegisterPropertyString('Sensors', '[]');
             $this->RegisterPropertyString('Targets', '[]');
             $this->RegisterPropertyInteger('ActivateDelay', 10);
-            
+
             //Variables
             $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 10);
             $this->EnableAction('Active');
@@ -185,18 +185,20 @@ declare(strict_types=1);
             }
         }
 
-        public function Activate() {
+        public function Activate()
+        {
             $this->SetBuffer('Active', 'Active');
             stopDelay();
         }
 
-        public function UpdateDisplay() {
-            if ($this->ReadAttributeInteger('TimeActivated') <= time()) { 
+        public function UpdateDisplay()
+        {
+            if ($this->ReadAttributeInteger('TimeActivated') <= time()) {
                 $this->stopDelay();
                 return;
             }
             $secondsRemaining = $this->ReadAttributeInteger('TimeActivated') - time();
-            $this->SetValue('DelayDisplay', sprintf('%02d:%02d:%02d', ($secondsRemaining/3600),($secondsRemaining/60%60), $secondsRemaining%60));
+            $this->SetValue('DelayDisplay', sprintf('%02d:%02d:%02d', ($secondsRemaining / 3600), ($secondsRemaining / 60 % 60), $secondsRemaining % 60));
         }
 
         private function GetProfileName($Variable)
@@ -352,10 +354,11 @@ declare(strict_types=1);
             IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
         }
 
-        private function startDelay() {
+        private function startDelay()
+        {
             //Display Delay
             $this->WriteAttributeInteger('TimeActivated', time() + ($this->ReadPropertyInteger('ActivateDelay')));
-                
+
             //Unhide countdown and update it the first time
             IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), false);
             $this->UpdateDisplay();
@@ -365,7 +368,8 @@ declare(strict_types=1);
             $this->SetTimerInterval('Delay', $this->ReadPropertyInteger('ActivateDelay') * 1000);
         }
 
-        private function stopDelay() {
+        private function stopDelay()
+        {
             $this->SetTimerInterval('Delay', 0);
             $this->SetTimerInterval('UpdateDisplay', 0);
             $this->SetValue('DelayDisplay', '00:00:00');
