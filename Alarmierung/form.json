@@ -66,6 +66,12 @@
         }],
         "values": [
         ]
+      },
+      {
+        "type" : "NumberSpinner",
+        "name": "ActivateDelay",
+        "caption": "Activation Delay",
+        "suffix": "Seconds"
       }
 	]
 }

@@ -9,16 +9,26 @@ declare(strict_types=1);
             //Never delete this line!
             parent::Create();
 
+            //Properties
             $this->RegisterPropertyString('Sensors', '[]');
             $this->RegisterPropertyString('Targets', '[]');
-            $this->RegisterAttributeInteger('LastAlert', 0);
-
+            $this->RegisterPropertyInteger('ActivateDelay', 10);
+            
             //Variables
-            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
+            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 10);
             $this->EnableAction('Active');
-            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 0);
+            $this->RegisterVariableString('DelayDisplay', $this->Translate('Time to Activation'), '', 20);
+            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 30);
             $this->EnableAction('Alert');
-            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox');
+            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox', 40);
+
+            //Attributes
+            $this->RegisterAttributeInteger('LastAlert', 0);
+            $this->RegisterAttributeInteger('TimeActivated', 0);
+
+            //Timer
+            $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
+            $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
         }
 
         public function ApplyChanges()
@@ -31,6 +41,10 @@ declare(strict_types=1);
 
             //Update active sensors
             $this->updateActive();
+
+            //DelayDispaly
+            $this->SetValue('Active', $this->GetBuffer('Active') !== '');
+            $this->stopDelay();
 
             //Deleting all References
             foreach ($this->GetReferenceList() as $referenceID) {
@@ -65,7 +79,7 @@ declare(strict_types=1);
         {
 
             //Only enable alarming if our module is active
-            if (!GetValue($this->GetIDForIdent('Active'))) {
+            if ($this->GetBuffer('Active') === '') {
                 return;
             }
 
@@ -144,9 +158,16 @@ declare(strict_types=1);
         public function SetActive(bool $Value)
         {
             SetValue($this->GetIDForIdent('Active'), $Value);
-
             if (!$Value) {
+                $this->SetBuffer('Active', '');
                 $this->SetAlert(false);
+                $this->stopDelay();
+                return;
+            }
+
+            //Start activation process only if not already active
+            if ($this->GetBuffer('Active') === '') {
+                $this->startDelay();
             }
         }
 
@@ -162,6 +183,20 @@ declare(strict_types=1);
                 default:
                     throw new Exception('Invalid ident');
             }
+        }
+
+        public function Activate() {
+            $this->SetBuffer('Active', 'Active');
+            stopDelay();
+        }
+
+        public function UpdateDisplay() {
+            if ($this->ReadAttributeInteger('TimeActivated') <= time()) { 
+                $this->stopDelay();
+                return;
+            }
+            $secondsRemaining = $this->ReadAttributeInteger('TimeActivated') - time();
+            $this->SetValue('DelayDisplay', sprintf('%02d:%02d:%02d', ($secondsRemaining/3600),($secondsRemaining/60%60), $secondsRemaining%60));
         }
 
         private function GetProfileName($Variable)
@@ -315,5 +350,25 @@ declare(strict_types=1);
 
             $this->SetValue('ActiveSensors', $activeSensors);
             IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
+        }
+
+        private function startDelay() {
+            //Display Delay
+            $this->WriteAttributeInteger('TimeActivated', time() + ($this->ReadPropertyInteger('ActivateDelay')));
+                
+            //Unhide countdown and update it the first time
+            IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), false);
+            $this->UpdateDisplay();
+
+            //Start timers for display update and activation
+            $this->SetTimerInterval('UpdateDisplay', 1000);
+            $this->SetTimerInterval('Delay', $this->ReadPropertyInteger('ActivateDelay') * 1000);
+        }
+
+        private function stopDelay() {
+            $this->SetTimerInterval('Delay', 0);
+            $this->SetTimerInterval('UpdateDisplay', 0);
+            $this->SetValue('DelayDisplay', '00:00:00');
+            IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
         }
     }
