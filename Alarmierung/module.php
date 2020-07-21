@@ -267,12 +267,10 @@ declare(strict_types=1);
                     }
 
                     $formdata->elements[1]->values[] = [
-                        'Name'   => IPS_GetName($sensor->ID),
                         'Status' => $status,
                     ];
                 } else {
                     $formdata->elements[1]->values[] = [
-                        'Name'     => $this->Translate('Not found!'),
                         'rowColor' => '#FFC0C0',
                     ];
                 }
