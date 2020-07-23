@@ -29,6 +29,13 @@ declare(strict_types=1);
             //Timer
             $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
             $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
+          
+            //Variables
+            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
+            $this->EnableAction('Active');
+            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 0);
+            $this->EnableAction('Alert');
+            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox');
         }
 
         public function ApplyChanges()
@@ -310,25 +317,19 @@ declare(strict_types=1);
 
         private function getAlertValue($variableID, $value)
         {
-            if ($this->profileInverted($variableID)) {
-                return boolval(!$value);
-            }
-
             switch ($this->GetProfileName(IPS_GetVariable($variableID))) {
                 case '~Window.Hoppe':
-                    if ($value == 0 || $value == 2) {
-                        return true;
-                    }
+                    return ($value == 0) || ($value == 2);
 
-                    break;
                 case '~Window.HM':
-                    if ($value == 1 || $value == 2) {
-                        return true;
-                    }
+                    return ($value == 1) || ($value == 2);
 
-                    break;
                 default:
-                    return boolval($value);
+                    if ($this->profileInverted($variableID)) {
+                        return !boolval($value);
+                    } else {
+                        return boolval($value);
+                    }
             }
         }
 
