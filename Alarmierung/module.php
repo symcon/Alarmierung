@@ -29,7 +29,7 @@ declare(strict_types=1);
             //Timer
             $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
             $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
-          
+
             //Variables
             $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
             $this->EnableAction('Active');
