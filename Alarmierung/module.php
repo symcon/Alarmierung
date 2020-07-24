@@ -266,7 +266,7 @@ declare(strict_types=1);
                     if (!IPS_VariableExists($target->ID)) {
                         $status = $this->Translate('Not a variable');
                         $rowColor = '#FFC0C0';
-                    } elseif (!$this->HasAction($target->ID)) {
+                    } elseif (!HasAction($target->ID)) {
                         $status = $this->Translate('No action set');
                         $rowColor = '#FFC0C0';
                     }
