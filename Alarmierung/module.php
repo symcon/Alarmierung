@@ -210,15 +210,6 @@ declare(strict_types=1);
             }
         }
 
-        private function GetProfileAction($Variable)
-        {
-            if ($Variable['VariableCustomAction'] != '') {
-                return $Variable['VariableCustomAction'];
-            } else {
-                return $Variable['VariableAction'];
-            }
-        }
-
         private function profileInverted($VariableID)
         {
             return substr($this->GetProfileName(IPS_GetVariable($VariableID)), -strlen('.Reversed')) === '.Reversed';
