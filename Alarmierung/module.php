@@ -100,19 +100,21 @@ declare(strict_types=1);
                     $profileName = $this->GetProfileName($v);
 
                     //If we somehow do not have a profile take care that we do not fail immediately
+                    $variableProfile = IPS_GetVariableProfile($profileName);
+                    $isReversd = $this->profileInverted($targetID->ID);
                     if ($profileName != '') {
                         //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
                         if ($Status) {
-                            $actionValue = IPS_GetVariableProfile($profileName)['MaxValue'];
+                            $actionValue = $isReversd ? $variableProfile['MinValue'] : $variableProfile['MaxValue'];
                         } else {
-                            $actionValue = 0;
+                            $actionValue = $isReversd ? $variableProfile['MaxValue'] : $variableProfile['MinValue'];
                         }
                         //Reduce to boolean if required
                         if ($v['VariableType'] == 0) {
-                            $actionValue = $actionValue > 0;
+                            $actionValue = boolval($actionValue);
                         }
                     } else {
-                        $actionValue = $Status;
+                        $actionValue = $isReversd ? !$Status : $Status;
                     }
                     RequestAction($targetID->ID, $actionValue);
                 }
@@ -166,7 +168,13 @@ declare(strict_types=1);
 
             //Start activation process only if not already active
             if (!json_decode($this->GetBuffer('Active'))) {
-                $this->startDelay();
+
+                //Only start with delay when delay is > 0
+                if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
+                    $this->startDelay();
+                } else {
+                    $this->SetBuffer('Active', json_encode(true));
+                }
             }
         }
 
@@ -187,7 +195,7 @@ declare(strict_types=1);
         public function Activate()
         {
             $this->SetBuffer('Active', json_encode(true));
-            stopDelay();
+            $this->stopDelay();
         }
 
         public function UpdateDisplay()

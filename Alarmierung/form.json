@@ -63,7 +63,8 @@
         "type" : "NumberSpinner",
         "name": "ActivateDelay",
         "caption": "Activation Delay",
-        "suffix": "Seconds"
+        "suffix": "Seconds",
+        "minimum": 0
       }
 	]
 }
