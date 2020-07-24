@@ -219,17 +219,6 @@ declare(strict_types=1);
             }
         }
 
-        private function GetActionForVariable($Variable)
-        {
-            $v = IPS_GetVariable($Variable);
-
-            if ($v['VariableCustomAction'] > 0) {
-                return $v['VariableCustomAction'];
-            } else {
-                return $v['VariableAction'];
-            }
-        }
-
         private function profileInverted($VariableID)
         {
             return substr($this->GetProfileName(IPS_GetVariable($VariableID)), -strlen('.Reversed')) === '.Reversed';
@@ -287,7 +276,7 @@ declare(strict_types=1);
                     if (!IPS_VariableExists($target->ID)) {
                         $status = $this->Translate('Not a variable');
                         $rowColor = '#FFC0C0';
-                    } elseif ($this->GetActionForVariable($target->ID) <= 10000) {
+                    } elseif (!$this->HasAction($target->ID)) {
                         $status = $this->Translate('No action set');
                         $rowColor = '#FFC0C0';
                     }
