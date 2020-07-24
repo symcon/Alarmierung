@@ -24,7 +24,6 @@ declare(strict_types=1);
 
             //Attributes
             $this->RegisterAttributeInteger('LastAlert', 0);
-            $this->RegisterAttributeInteger('TimeActivated', 0);
 
             //Timer
             $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
@@ -44,7 +43,7 @@ declare(strict_types=1);
             $this->updateActive();
 
             //DelayDispaly
-            $this->SetValue('Active', $this->GetBuffer('Active') !== '');
+            $this->SetBuffer('Active', json_encode($this->GetValue('Active')));
             $this->stopDelay();
 
             //Deleting all References
@@ -80,7 +79,7 @@ declare(strict_types=1);
         {
 
             //Only enable alarming if our module is active
-            if ($this->GetBuffer('Active') === '') {
+            if (json_decode($this->GetBuffer('Active'))) {
                 return;
             }
 
@@ -160,14 +159,14 @@ declare(strict_types=1);
         {
             SetValue($this->GetIDForIdent('Active'), $Value);
             if (!$Value) {
-                $this->SetBuffer('Active', '');
+                $this->SetBuffer('Active', json_encode(false));
                 $this->SetAlert(false);
                 $this->stopDelay();
                 return;
             }
 
             //Start activation process only if not already active
-            if ($this->GetBuffer('Active') === '') {
+            if (json_decode($this->GetBuffer('Active'))) {
                 $this->startDelay();
             }
         }
@@ -188,17 +187,17 @@ declare(strict_types=1);
 
         public function Activate()
         {
-            $this->SetBuffer('Active', 'Active');
+            $this->SetBuffer('Active', json_encode(true));
             stopDelay();
         }
 
         public function UpdateDisplay()
         {
-            if ($this->ReadAttributeInteger('TimeActivated') <= time()) {
+            if (json_decode($this->GetBuffer('TimeActivated')) <= time()) {
                 $this->stopDelay();
                 return;
             }
-            $secondsRemaining = $this->ReadAttributeInteger('TimeActivated') - time();
+            $secondsRemaining = json_decode($this->GetBuffer('TimeActivated')) - time();
             $this->SetValue('DelayDisplay', sprintf('%02d:%02d:%02d', ($secondsRemaining / 3600), ($secondsRemaining / 60 % 60), $secondsRemaining % 60));
         }
 
@@ -350,7 +349,7 @@ declare(strict_types=1);
         private function startDelay()
         {
             //Display Delay
-            $this->WriteAttributeInteger('TimeActivated', time() + ($this->ReadPropertyInteger('ActivateDelay')));
+            $this->SetBuffer('TimeActivated', json_encode(time() + $this->ReadPropertyInteger('ActivateDelay')));
 
             //Unhide countdown and update it the first time
             IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), false);
