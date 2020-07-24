@@ -30,12 +30,6 @@ declare(strict_types=1);
             $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
             $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
 
-            //Variables
-            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
-            $this->EnableAction('Active');
-            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 0);
-            $this->EnableAction('Alert');
-            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox');
         }
 
         public function ApplyChanges()
