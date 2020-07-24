@@ -28,7 +28,6 @@ declare(strict_types=1);
             //Timer
             $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
             $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
-
         }
 
         public function ApplyChanges()
@@ -79,7 +78,7 @@ declare(strict_types=1);
         {
 
             //Only enable alarming if our module is active
-            if (json_decode($this->GetBuffer('Active'))) {
+            if (!json_decode($this->GetBuffer('Active'))) {
                 return;
             }
 
@@ -166,7 +165,7 @@ declare(strict_types=1);
             }
 
             //Start activation process only if not already active
-            if (json_decode($this->GetBuffer('Active'))) {
+            if (!json_decode($this->GetBuffer('Active'))) {
                 $this->startDelay();
             }
         }
