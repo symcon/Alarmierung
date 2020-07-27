@@ -22,7 +22,7 @@ Ein einmal geschalteter Alarm wird nicht automatisch deaktiviert, dieser muss ma
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 5.1
+- IP-Symcon ab Version 5.3
 
 ### 3. Software-Installation
 
