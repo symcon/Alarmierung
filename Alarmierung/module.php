@@ -100,21 +100,22 @@ declare(strict_types=1);
                     $profileName = $this->GetProfileName($v);
 
                     //If we somehow do not have a profile take care that we do not fail immediately
-                    $variableProfile = IPS_GetVariableProfile($profileName);
-                    $isReversd = $this->profileInverted($targetID->ID);
+                    $isReversed = $this->profileInverted($targetID->ID);
                     if ($profileName != '') {
+                        $variableProfile = IPS_GetVariableProfile($profileName);
                         //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
-                        if ($Status) {
-                            $actionValue = $isReversd ? $variableProfile['MinValue'] : $variableProfile['MaxValue'];
+                        if ($Status != $isReversed) {
+                            $actionValue = $variableProfile['MaxValue'];
                         } else {
-                            $actionValue = $isReversd ? $variableProfile['MaxValue'] : $variableProfile['MinValue'];
+                            $actionValue = $variableProfile['MinValue'];
                         }
                         //Reduce to boolean if required
+
                         if ($v['VariableType'] == 0) {
-                            $actionValue = boolval($actionValue);
+                            $actionValue = $isReversed ? !$Status : $Status;
                         }
                     } else {
-                        $actionValue = $isReversd ? !$Status : $Status;
+                        $actionValue = $Status;
                     }
                     RequestAction($targetID->ID, $actionValue);
                 }
