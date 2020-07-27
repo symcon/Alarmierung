@@ -40,7 +40,7 @@ __Konfigurationsseite__:
 Name                   | Beschreibung
 ---------------------- | ---------------------------------
 Button "Konvertierung" | (Wird nur angezeigt, wenn die Listen leer und alte Links vorhanden sind) Wenn eine alte Version des Moduls erkannt wurde, können die alten Links in die neuen Listen via Knopfdruck eingepflegt werden. Ist dies Erfolgreich erscheint ein Meldungsfenster.
-Sensorvariablen        | Diese Liste beinhaltet die Variablen, welche bei Aktualisierung einen Alarm auslösen.
+Sensorvariablen        | Diese Liste beinhaltet die Variablen, welche bei Aktualisierung auf einen aktiven Wert einen Alarm auslösen. Als aktiv gelten hierbei Variablen mit dem Wert true oder einen Wert ungleich 0. Sollte die Variable ein .Reversed Profil haben gelten die Werte false und 0 als aktiv.
 Zielvariablen          | Diese Liste beinhaltet die Variablen, welche bei Alarm geschaltet werden. Diese müssen eine Standardaktion oder Aktionsskript beinhalten.
 Einschaltverzögerung   | Wenn größer 0 wird die Alarmierung erst nach der eingestellten Zeit aktiv
 
