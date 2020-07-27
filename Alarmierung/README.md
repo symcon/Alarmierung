@@ -52,10 +52,10 @@ Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzeln
 
 Name                 | Typ       | Beschreibung
 ---------------------| --------- | ----------------
-Aktiv                | Boolean   | De-/Aktiviert die Alarmierung. Wird die Alarmierung deaktiviert, so wird auch der ggf. vorhandene Alarm deaktiviert.
-Zeit bis Aktivierung | String    | Zeigt während des Aktivierungs-Vorgangs die noch verbleibende Zeit an
-Alarm                | Boolean   | De-/Aktiviert den Alarm.
-Aktive Sensoren      | String    | Listet alle aktiven Sensoren auf und wird ausgeblenet, wenn keine Aktiv sind
+Aktiv                | Boolean   | De-/Aktiviert die Alarmierung. Wird die Alarmierung deaktiviert, so wird auch der ggf. vorhandene Alarm deaktiviert sowie alle ausgewählten Zielvariablen.
+Zeit bis Aktivierung | String    | Zeigt während des Aktivierungs-Vorgangs die noch verbleibende Zeit an.
+Alarm                | Boolean   | De-/Aktiviert den Alarm und alle ausgewählten Zielvariablen.
+Aktive Sensoren      | String    | Listet alle aktiven Sensoren auf und wird ausgeblenet, wenn keine Aktiv sind.
 
 
 ##### Profile:
