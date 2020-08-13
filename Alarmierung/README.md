@@ -15,13 +15,14 @@ Ein einmal geschalteter Alarm wird nicht automatisch deaktiviert, dieser muss ma
 
 ### 1. Funktionsumfang
 
-* Konfiguration von Sensor- und Zielvariablen via ListenAuswahl, welche den Alarm auslösen oder bei einem Alarm geschaltet werden.
+* Konfiguration von Sensor- und Zielvariablen via Listenauswahl, welche den Alarm auslösen oder bei einem Alarm geschaltet werden.
+* Einstellbare Einschaltverzögerung
 * Ein-/Ausschaltbarkeit via WebFront-Button oder Skript-Funktion.
 * Konvertierungsfunktion für alte Versionen des Alarmierungsmoduls
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 5.1
+- IP-Symcon ab Version 5.3
 
 ### 3. Software-Installation
 
@@ -39,8 +40,9 @@ __Konfigurationsseite__:
 Name                   | Beschreibung
 ---------------------- | ---------------------------------
 Button "Konvertierung" | (Wird nur angezeigt, wenn die Listen leer und alte Links vorhanden sind) Wenn eine alte Version des Moduls erkannt wurde, können die alten Links in die neuen Listen via Knopfdruck eingepflegt werden. Ist dies Erfolgreich erscheint ein Meldungsfenster.
-Sensorvariablen        | Diese Liste beinhaltet die Variablen, welche bei Aktualisierung einen Alarm auslösen.
+Sensorvariablen        | Diese Liste beinhaltet die Variablen, welche bei Aktualisierung auf einen aktiven Wert einen Alarm auslösen. Als aktiv gelten hierbei Variablen mit dem Wert true oder einen Wert ungleich 0. Sollte die Variable ein .Reversed Profil haben gelten die Werte false und 0 als aktiv.
 Zielvariablen          | Diese Liste beinhaltet die Variablen, welche bei Alarm geschaltet werden. Diese müssen eine Standardaktion oder Aktionsskript beinhalten.
+Einschaltverzögerung   | Wenn größer 0 wird die Alarmierung erst nach der eingestellten Zeit aktiv
 
 ### 5. Statusvariablen und Profile
 
@@ -48,10 +50,13 @@ Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzeln
 
 ##### Statusvariablen
 
-Name         | Typ       | Beschreibung
------------- | --------- | ----------------
-Active       | Boolean   | De-/Aktiviert die Alarmierung. Wird die Alarmierung deaktiviert, so wird auch der ggf. vorhandene Alarm deaktiviert.
-Alert        | Boolean   | De-/Aktiviert den Alarm.
+Name                 | Typ       | Beschreibung
+---------------------| --------- | ----------------
+Aktiv                | Boolean   | De-/Aktiviert die Alarmierung. Wird die Alarmierung deaktiviert, so wird auch der ggf. vorhandene Alarm deaktiviert sowie alle ausgewählten Zielvariablen.
+Zeit bis Aktivierung | String    | Zeigt während des Aktivierungs-Vorgangs die noch verbleibende Zeit an.
+Alarm                | Boolean   | De-/Aktiviert den Alarm und alle ausgewählten Zielvariablen.
+Aktive Sensoren      | String    | Listet alle aktiven Sensoren auf und wird ausgeblenet, wenn keine Aktiv sind.
+
 
 ##### Profile:
 
@@ -61,6 +66,7 @@ Es werden keine zusätzlichen Profile hinzugefügt.
 
 Über das WebFront kann die Alarmierung de-/aktiviert werden.  
 Es wird zusätzlich angezeigt, ob ein Alarm vorliegt oder nicht.
+Es wird eine Liste aller noch aktieven Sensoren angezeigt.
 Der Alarm kann auch manuell de-/aktiviert werden.
 
 ### 7. PHP-Befehlsreferenz

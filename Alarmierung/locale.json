@@ -10,7 +10,11 @@
 			"Sensorvariables" : "Sensorvariablen",
 			"Targetvariables" : "Zielvariablen",
 			"Not found!" : "Nicht gefunden!",
-			"Active Sensors": "Aktive Sensoren"
+			"Active Sensors": "Aktive Sensoren",
+			"Time to Activation": "Zeit bis Aktivierung",
+			"Seconds": "Sekunden",
+			"Activation Delay": "Einschaltverzögerung",
+			"Variable": "Variable"
 		}
 	}
 }

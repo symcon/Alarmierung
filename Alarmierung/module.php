@@ -9,16 +9,25 @@ declare(strict_types=1);
             //Never delete this line!
             parent::Create();
 
+            //Properties
             $this->RegisterPropertyString('Sensors', '[]');
             $this->RegisterPropertyString('Targets', '[]');
-            $this->RegisterAttributeInteger('LastAlert', 0);
+            $this->RegisterPropertyInteger('ActivateDelay', 10);
 
             //Variables
-            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 0);
+            $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 10);
             $this->EnableAction('Active');
-            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 0);
+            $this->RegisterVariableString('DelayDisplay', $this->Translate('Time to Activation'), '', 20);
+            $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 30);
             $this->EnableAction('Alert');
-            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox');
+            $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox', 40);
+
+            //Attributes
+            $this->RegisterAttributeInteger('LastAlert', 0);
+
+            //Timer
+            $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
+            $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
         }
 
         public function ApplyChanges()
@@ -31,6 +40,10 @@ declare(strict_types=1);
 
             //Update active sensors
             $this->updateActive();
+
+            //DelayDispaly
+            $this->SetBuffer('Active', json_encode($this->GetValue('Active')));
+            $this->stopDelay();
 
             //Deleting all References
             foreach ($this->GetReferenceList() as $referenceID) {
@@ -65,7 +78,7 @@ declare(strict_types=1);
         {
 
             //Only enable alarming if our module is active
-            if (!GetValue($this->GetIDForIdent('Active'))) {
+            if (!json_decode($this->GetBuffer('Active'))) {
                 return;
             }
 
@@ -87,16 +100,19 @@ declare(strict_types=1);
                     $profileName = $this->GetProfileName($v);
 
                     //If we somehow do not have a profile take care that we do not fail immediately
+                    $isReversed = $this->profileInverted($targetID->ID);
                     if ($profileName != '') {
+                        $variableProfile = IPS_GetVariableProfile($profileName);
                         //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
-                        if ($Status) {
-                            $actionValue = IPS_GetVariableProfile($profileName)['MaxValue'];
+                        if ($Status != $isReversed) {
+                            $actionValue = $variableProfile['MaxValue'];
                         } else {
-                            $actionValue = 0;
+                            $actionValue = $variableProfile['MinValue'];
                         }
                         //Reduce to boolean if required
+
                         if ($v['VariableType'] == 0) {
-                            $actionValue = $actionValue > 0;
+                            $actionValue = $isReversed ? !$Status : $Status;
                         }
                     } else {
                         $actionValue = $Status;
@@ -144,9 +160,22 @@ declare(strict_types=1);
         public function SetActive(bool $Value)
         {
             SetValue($this->GetIDForIdent('Active'), $Value);
-
             if (!$Value) {
+                $this->SetBuffer('Active', json_encode(false));
                 $this->SetAlert(false);
+                $this->stopDelay();
+                return;
+            }
+
+            //Start activation process only if not already active
+            if (!json_decode($this->GetBuffer('Active'))) {
+
+                //Only start with delay when delay is > 0
+                if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
+                    $this->startDelay();
+                } else {
+                    $this->SetBuffer('Active', json_encode(true));
+                }
             }
         }
 
@@ -164,32 +193,28 @@ declare(strict_types=1);
             }
         }
 
+        public function Activate()
+        {
+            $this->SetBuffer('Active', json_encode(true));
+            $this->stopDelay();
+        }
+
+        public function UpdateDisplay()
+        {
+            if (json_decode($this->GetBuffer('TimeActivated')) <= time()) {
+                $this->stopDelay();
+                return;
+            }
+            $secondsRemaining = json_decode($this->GetBuffer('TimeActivated')) - time();
+            $this->SetValue('DelayDisplay', sprintf('%02d:%02d:%02d', ($secondsRemaining / 3600), ($secondsRemaining / 60 % 60), $secondsRemaining % 60));
+        }
+
         private function GetProfileName($Variable)
         {
             if ($Variable['VariableCustomProfile'] != '') {
                 return $Variable['VariableCustomProfile'];
             } else {
                 return $Variable['VariableProfile'];
-            }
-        }
-
-        private function GetProfileAction($Variable)
-        {
-            if ($Variable['VariableCustomAction'] != '') {
-                return $Variable['VariableCustomAction'];
-            } else {
-                return $Variable['VariableAction'];
-            }
-        }
-
-        private function GetActionForVariable($Variable)
-        {
-            $v = IPS_GetVariable($Variable);
-
-            if ($v['VariableCustomAction'] > 0) {
-                return $v['VariableCustomAction'];
-            } else {
-                return $v['VariableAction'];
             }
         }
 
@@ -230,12 +255,10 @@ declare(strict_types=1);
                     }
 
                     $formdata->elements[1]->values[] = [
-                        'Name'   => IPS_GetName($sensor->ID),
                         'Status' => $status,
                     ];
                 } else {
                     $formdata->elements[1]->values[] = [
-                        'Name'     => $this->Translate('Not found!'),
                         'rowColor' => '#FFC0C0',
                     ];
                 }
@@ -252,7 +275,7 @@ declare(strict_types=1);
                     if (!IPS_VariableExists($target->ID)) {
                         $status = $this->Translate('Not a variable');
                         $rowColor = '#FFC0C0';
-                    } elseif ($this->GetActionForVariable($target->ID) <= 10000) {
+                    } elseif (!HasAction($target->ID)) {
                         $status = $this->Translate('No action set');
                         $rowColor = '#FFC0C0';
                     }
@@ -309,5 +332,27 @@ declare(strict_types=1);
 
             $this->SetValue('ActiveSensors', $activeSensors);
             IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
+        }
+
+        private function startDelay()
+        {
+            //Display Delay
+            $this->SetBuffer('TimeActivated', json_encode(time() + $this->ReadPropertyInteger('ActivateDelay')));
+
+            //Unhide countdown and update it the first time
+            IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), false);
+            $this->UpdateDisplay();
+
+            //Start timers for display update and activation
+            $this->SetTimerInterval('UpdateDisplay', 1000);
+            $this->SetTimerInterval('Delay', $this->ReadPropertyInteger('ActivateDelay') * 1000);
+        }
+
+        private function stopDelay()
+        {
+            $this->SetTimerInterval('Delay', 0);
+            $this->SetTimerInterval('UpdateDisplay', 0);
+            $this->SetValue('DelayDisplay', '00:00:00');
+            IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
         }
     }

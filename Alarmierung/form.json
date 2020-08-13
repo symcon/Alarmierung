@@ -14,18 +14,14 @@
         },
         "columns": [{
           "name" : "ID",
-          "label" : "ID",
-          "width" : "60px",
+          "caption" : "Variable",
+          "width" : "auto",
           "add": 0,
           "edit": {
             "type": "SelectVariable"
           }
-        }, {
-          "name" : "Name",
-          "label" : "Name",
-          "width" : "auto",
-          "add": "Select variable"
-        }, {
+        },
+        {
           "name" : "Status",
           "label" : "Status",
           "width" : "120",
@@ -47,18 +43,14 @@
         },
         "columns": [{
           "name" : "ID",
-          "label" : "ID",
-          "width" : "60px",
+          "caption" : "Variable",
+          "width" : "auto",
           "add": 0,
           "edit": {
             "type": "SelectVariable"
           }
-        }, {
-          "name" : "Name",
-          "label" : "Name",
-          "width" : "auto",
-          "add": "Select variable"
-        }, {
+        },
+        {
           "name" : "Status",
           "label" : "Status",
           "width" : "120",
@@ -66,6 +58,13 @@
         }],
         "values": [
         ]
+      },
+      {
+        "type" : "NumberSpinner",
+        "name": "ActivateDelay",
+        "caption": "Activation Delay",
+        "suffix": "Seconds",
+        "minimum": 0
       }
 	]
 }
