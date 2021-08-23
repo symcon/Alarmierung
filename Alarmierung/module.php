@@ -67,14 +67,14 @@ declare(strict_types=1);
             $sensors = json_decode($this->ReadPropertyString('Sensors'));
             foreach ($sensors as $sensor) {
                 if ($sensor->ID == $SenderID) {
-                    $this->TriggerAlert($sensor->ID, GetValue($sensor->ID));
+                    $this->triggerAlert($sensor->ID, GetValue($sensor->ID));
                     $this->updateActive();
                     return;
                 }
             }
         }
 
-        public function TriggerAlert(int $SourceID, int $SourceValue)
+        private function triggerAlert($sourceID, $sourceValue)
         {
 
             //Only enable alarming if our module is active
@@ -82,8 +82,8 @@ declare(strict_types=1);
                 return;
             }
 
-            if ($this->getAlertValue($SourceID, $SourceValue)) {
-                $this->WriteAttributeInteger('LastAlert', $SourceID);
+            if ($this->getAlertValue($sourceID, $sourceValue)) {
+                $this->WriteAttributeInteger('LastAlert', $sourceID);
                 $this->SetAlert(true);
             }
         }
