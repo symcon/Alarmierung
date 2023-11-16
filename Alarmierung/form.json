@@ -1,70 +1,77 @@
 {
-	"elements":
-	[
-      { "type": "Label", "label": "Add/Delete sensor variables, which activate the alarm" },
-      {
-        "type": "List",
-        "name": "Sensors",
-        "caption": "Sensorvariables",
-        "add": true,
-        "delete": true,
-        "sort": {
-          "column": "ID",
-          "direction": "ascending"
-        },
-        "columns": [{
-          "name" : "ID",
-          "caption" : "Variable",
-          "width" : "auto",
-          "add": 0,
-          "edit": {
-            "type": "SelectVariable"
-          }
+    "elements": [
+        {
+            "type": "Label",
+            "label": "Add/Delete sensor variables, which activate the alarm"
         },
         {
-          "name" : "Status",
-          "label" : "Status",
-          "width" : "120",
-          "add": ""
-        }],
-        "values": [
-        ]
-      },
-      { "type": "Label", "label": "Add/Delete target variables, which react on the alarm" },
-      {
-        "type": "List",
-        "name": "Targets",
-        "caption": "Targetvariables",
-        "add": true,
-        "delete": true,
-        "sort": {
-          "column": "ID",
-          "direction": "ascending"
-        },
-        "columns": [{
-          "name" : "ID",
-          "caption" : "Variable",
-          "width" : "auto",
-          "add": 0,
-          "edit": {
-            "type": "SelectVariable"
-          }
+            "type": "List",
+            "name": "Sensors",
+            "caption": "Sensorvariables",
+            "add": true,
+            "delete": true,
+            "sort": {
+                "column": "ID",
+                "direction": "ascending"
+            },
+            "columns": [
+                {
+                    "name": "ID",
+                    "caption": "Variable",
+                    "width": "auto",
+                    "add": 0,
+                    "edit": {
+                        "type": "SelectVariable"
+                    }
+                },
+                {
+                    "name": "Status",
+                    "label": "Status",
+                    "width": "120",
+                    "add": ""
+                }
+            ],
+            "values": []
         },
         {
-          "name" : "Status",
-          "label" : "Status",
-          "width" : "120",
-          "add": ""
-        }],
-        "values": [
-        ]
-      },
-      {
-        "type" : "NumberSpinner",
-        "name": "ActivateDelay",
-        "caption": "Activation Delay",
-        "suffix": "Seconds",
-        "minimum": 0
-      }
-	]
+            "type": "Label",
+            "label": "Add/Delete target variables, which react on the alarm"
+        },
+        {
+            "type": "List",
+            "name": "Targets",
+            "caption": "Targetvariables",
+            "add": true,
+            "delete": true,
+            "sort": {
+                "column": "ID",
+                "direction": "ascending"
+            },
+            "columns": [
+                {
+                    "name": "ID",
+                    "caption": "Variable",
+                    "width": "auto",
+                    "add": 0,
+                    "edit": {
+                        "type": "SelectVariable"
+                    }
+                },
+                {
+                    "name": "Status",
+                    "label": "Status",
+                    "width": "120",
+                    "add": ""
+                }
+            ],
+            "values": []
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "ActivateDelay",
+            "caption": "Activation Delay",
+            "suffix": "Seconds",
+            "minimum": 0
+        }
+    ]
 }
