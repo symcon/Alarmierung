@@ -1,19 +1,19 @@
 {
     "translations": {
         "de": {
-            "Converting successful! Please reopen this configuration page. If everything is correct, all events and categories of this instance can be deleted": "Konvertierung erfolgreich! Bitte diese Konfigurationsseite neu \u00f6ffnen. Wenn alles korrekt ist k\u00f6nnen die Kategorien und Ereignisse unterhalb der Instanz gel\u00f6scht werden.",
+            "Converting successful! Please reopen this configuration page. If everything is correct, all events and categories of this instance can be deleted": "Konvertierung erfolgreich! Bitte diese Konfigurationsseite neu öffnen. Wenn alles korrekt ist können die Kategorien und Ereignisse unterhalb der Instanz gelöscht werden.",
             "Active": "Aktiv",
             "Alert": "Alarm",
             "Convert": "Konvertieren",
-            "Add/Delete sensor variables, which activate the alarm": "Hinzuf\u00fcgen/L\u00f6schen von Sensorvariablen, welche den Alarm ausl\u00f6sen",
-            "Add/Delete target variables, which react on the alarm": "Hinzuf\u00fcgen/L\u00f6schen von Zielvariablen, welche bei Alarm geschaltet werden",
+            "Add/Delete sensor variables, which activate the alarm": "Hinzufügen/Löschen von Sensorvariablen, welche den Alarm auslösen",
+            "Add/Delete target variables, which react on the alarm": "Hinzufügen/Löschen von Zielvariablen, welche bei Alarm geschaltet werden",
             "Sensorvariables": "Sensorvariablen",
             "Targetvariables": "Zielvariablen",
             "Not found!": "Nicht gefunden!",
             "Active Sensors": "Aktive Sensoren",
             "Time to Activation": "Zeit bis Aktivierung",
             "Seconds": "Sekunden",
-            "Activation Delay": "Einschaltverz\u00f6gerung",
+            "Activation Delay": "Einschaltverzögerung",
             "Variable": "Variable",
             "Alerting": "Alarmierung",
             "https://www.symcon.de/en/service/documentation/module-reference/alerting/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/alarmierung/"
