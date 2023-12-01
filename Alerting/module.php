@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-class Alarmierung extends IPSModule
+class Alerting extends IPSModule
 {
     public function Create()
     {

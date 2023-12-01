@@ -8,8 +8,8 @@ class AlarmierungValidationTest extends TestCaseSymconValidation
     {
         $this->validateLibrary(__DIR__ . '/..');
     }
-    public function testValidateAlarmierungModule(): void
+    public function testValidateAlertingModule(): void
     {
-        $this->validateModule(__DIR__ . '/../Alarmierung');
+        $this->validateModule(__DIR__ . '/../Alerting');
     }
 }

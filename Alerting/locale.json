@@ -14,7 +14,9 @@
             "Time to Activation": "Zeit bis Aktivierung",
             "Seconds": "Sekunden",
             "Activation Delay": "Einschaltverzögerung",
-            "Variable": "Variable"
+            "Variable": "Variable",
+            "Alerting": "Alarmierung",
+            "https://www.symcon.de/en/service/documentation/module-reference/alerting/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/alarmierung/"
         }
     }
 }
