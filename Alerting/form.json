@@ -1,6 +1,11 @@
 {
     "elements": [
         {
+            "type": "CheckBox",
+            "name": "NightAlarm",
+            "caption": "Night Alarm"
+        },
+        {
             "type": "Label",
             "label": "Add/Delete sensor variables, which activate the alarm"
         },
@@ -29,6 +34,15 @@
                     "label": "Status",
                     "width": "120",
                     "add": ""
+                },
+                {
+                    "name": "NightAlarm",
+                    "label": "Trigger at night",
+                    "width": "240",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
                 }
             ],
             "values": []
@@ -40,22 +54,26 @@
         {
             "type": "List",
             "name": "Targets",
-            "caption": "Targetvariables",
+            "caption": "Targets",
             "add": true,
             "delete": true,
             "sort": {
-                "column": "ID",
+                "column": "Name",
                 "direction": "ascending"
             },
+            "form": "return ARM_UIGetTargetForm($id, $Targets);",
             "columns": [
                 {
-                    "name": "ID",
-                    "caption": "Variable",
+                    "name": "Name",
+                    "caption": "Target",
                     "width": "auto",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
+                    "add": ""
+                },
+                {
+                    "name": "ExecuteOn",
+                    "caption": "Execute on",
+                    "width": "200",
+                    "add": ""
                 },
                 {
                     "name": "Status",
