@@ -71,6 +71,32 @@ class Alerting extends IPSModule
         }
     }
 
+    public function Migrate($JSONData)
+    {
+        // Never delete this line!
+        parent::Migrate($JSONData);
+
+        $original = json_decode($JSONData, true);
+        $config = $original['configuration'];
+        // Sensors
+        $sensors = json_decode($config['Sensors'], true);
+        $newSensors = [];
+        foreach ($sensors as $sensor) {
+            $newSensors[] = ['ID' => $sensor['ID'], 'NightAlarm' => true];
+        }
+        $config['Sensors'] = json_encode($newSensors);
+
+        // Targets
+        $targets = json_decode($config['Targets'], true);
+        $newTargets = [];
+        foreach ($targets as $target) {
+            $newTargets[] = ['VariableID' => $target['ID'], 'Type' => 0 /* Variable */];
+        }
+
+        $config['Targets'] = json_encode($newTargets);
+        $original['configuration'] = $config;
+
+        return json_encode($original);
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
@@ -318,7 +344,7 @@ class Alerting extends IPSModule
 
     public function UIGetTargetForm($Values)
     {
-        $type = $Values['Type'];
+        $type = $Values['Type'] ?? 0;
         return [
             [
                 'type' => 'RowLayout', 'items' => [
