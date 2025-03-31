@@ -335,14 +335,14 @@ class Alerting extends IPSModule
         return json_encode($formdata);
     }
 
-    public function UIUpdateList($Value)
+    public function UIUpdateList(int $Value)
     {
         $this->UpdateFormField('VariableID', 'visible', $Value === 0);
         $this->UpdateFormField('Action', 'visible', $Value === 1);
         $this->UpdateFormField('AlarmStatus', 'visible', $Value === 1);
     }
 
-    public function UIGetTargetForm($Values)
+    public function UIGetTargetForm(IPSList $Values)
     {
         $type = $Values['Type'] ?? 0;
         return [
