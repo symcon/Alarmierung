@@ -16,7 +16,7 @@ class Alerting extends IPSModule
         $this->RegisterPropertyBoolean('NightAlarm', false);
         $this->RegisterPropertyInteger('TriggerDelay', 0);
 
-        //Variables       
+        //Variables
         $this->RegisterVariableString('DelayDisplay', $this->Translate('Time to Activation'), '', 20);
         $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 30);
         $this->EnableAction('Alert');
@@ -234,39 +234,9 @@ class Alerting extends IPSModule
         }
     }
 
-    public function triggerAlarmDelayed($variableID, $value)
-    {
-        //Only enable alarming if our module is active
-        if (!json_decode($this->GetBuffer('Active'))) {
-            return;
-        }
-
-        $triggeredVariables = $this->getTriggeredVariables();
-        if ($this->getAlertValue($variableID, $value)) {
-            if (!in_array($variableID, $triggeredVariables)) {
-                $triggeredVariables[] = $variableID;
-            }
-            $this->setTriggeredVariables($triggeredVariables);
-            // We only want to start the timer if it is not already running
-            if ($this->GetTimerInterval('TriggerDelay') === 0) {
-                $this->startTriggerDelay();
-            }
-        } else {
-            if (($index = array_search($variableID, $triggeredVariables)) !== false) {
-                unset($triggeredVariables[$index]);
-                // We need to do this becaus unset keeps the indices whichl lead to the ids being encoded as an object
-                $triggeredVariables = array_values($triggeredVariables);
-            }
-            $this->setTriggeredVariables($triggeredVariables);
-            if (empty($triggeredVariables)) {
-                $this->stopTriggerDelay();
-            }
-        }
-    }
-
     public function UpdateDelayedAlarm()
     {
-        
+
         $triggeredVariables = $this->getTriggeredVariables();
         if (!empty($triggeredVariables)) {
             $this->triggerAlert($triggeredVariables[0], GetValue($triggeredVariables[0]));
@@ -450,12 +420,44 @@ class Alerting extends IPSModule
         $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
-    private function getTriggeredVariables() {
+    private function triggerAlarmDelayed($variableID, $value)
+    {
+        //Only enable alarming if our module is active
+        if (!json_decode($this->GetBuffer('Active'))) {
+            return;
+        }
+
+        $triggeredVariables = $this->getTriggeredVariables();
+        if ($this->getAlertValue($variableID, $value)) {
+            if (!in_array($variableID, $triggeredVariables)) {
+                $triggeredVariables[] = $variableID;
+            }
+            $this->setTriggeredVariables($triggeredVariables);
+            // We only want to start the timer if it is not already running
+            if ($this->GetTimerInterval('TriggerDelay') === 0) {
+                $this->startTriggerDelay();
+            }
+        } else {
+            if (($index = array_search($variableID, $triggeredVariables)) !== false) {
+                unset($triggeredVariables[$index]);
+                // We need to do this becaus unset keeps the indices whichl lead to the ids being encoded as an object
+                $triggeredVariables = array_values($triggeredVariables);
+            }
+            $this->setTriggeredVariables($triggeredVariables);
+            if (empty($triggeredVariables)) {
+                $this->stopTriggerDelay();
+            }
+        }
+    }
+
+    private function getTriggeredVariables()
+    {
         $bufferString = $this->GetBuffer('TriggeredVariables');
         return empty($bufferString) ? [] : json_decode($bufferString, true);
     }
-    
-    private function setTriggeredVariables($ids) {
+
+    private function setTriggeredVariables($ids)
+    {
         $this->SetBuffer('TriggeredVariables', json_encode($ids));
     }
 
