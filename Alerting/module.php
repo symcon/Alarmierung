@@ -249,10 +249,15 @@ class Alerting extends IPSModule
 
         $formdata = json_decode(file_get_contents(__DIR__ . '/form.json'));
 
+        // Hide night alarm column
+        $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+        $formdata->elements[2]->columns[2]->visible = $nightAlarm;
+        $formdata->elements[2]->columns[2]->edit->visible = $nightAlarm;
+
         //Annotate existing elements
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
         foreach ($sensors as $sensor) {
-            //We only need to add annotations. Remaining data is merged from persistance automatically.
+            //We only need to add annotations. Remaining data is merged from persistence automatically.
             //Order is determinted by the order of array elements
             if (IPS_ObjectExists($sensor->ID) && $sensor->ID !== 0) {
                 $status = 'OK';
@@ -278,7 +283,7 @@ class Alerting extends IPSModule
             $status = 'OK';
             $rowColor = '';
             $name = '';
-            if ($target->Type === 0 /* Variable */) {
+            if (isset($target->Type) && $target->Type === 0 /* Variable */) {
                 //We only need to add annotations. Remaining data is merged from persistence automatically.
                 //Order is determined by the order of array elements
                 if (IPS_ObjectExists($target->VariableID) && $target->VariableID !== 0) {
@@ -295,7 +300,7 @@ class Alerting extends IPSModule
                     $rowColor = '#FFC0C0';
                 }
 
-            } else {
+            } elseif (isset($target->Action)) {
                 $actionDetails = [];
                 $action = json_decode($target->Action);
                 if (function_exists('IPS_GetAction')) {
@@ -328,7 +333,7 @@ class Alerting extends IPSModule
                 'Name'      => $name,
                 'Status'    => $status,
                 'rowColor'  => $rowColor,
-                'ExecuteOn' => $target->Type === 0 /* Variable */ ? $this->Translate('Alert/OK') : ($target->AlarmStatus ? $this->Translate('Alert') : $this->Translate('OK'))
+                'ExecuteOn' => (!isset($target->Type) || $target->Type === 0 /* Variable */) ? $this->Translate('Alert/OK') : ($target->AlarmStatus ? $this->Translate('Alert') : $this->Translate('OK'))
             ];
         }
 
@@ -385,6 +390,12 @@ class Alerting extends IPSModule
             ],
 
         ];
+    }
+
+    public function UIUpdateNightAlarm(bool $NightAlarm)
+    {
+        $this->UpdateFormField('Sensors', 'columns.2.visible', $NightAlarm);
+        $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
     private function triggerAlert($sourceID, $sourceValue)

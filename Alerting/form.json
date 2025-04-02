@@ -3,7 +3,8 @@
         {
             "type": "CheckBox",
             "name": "NightAlarm",
-            "caption": "Night Alarm"
+            "caption": "Activate support for night alarm",
+            "onChange": "ARM_UIUpdateNightAlarm($id, $NightAlarm);"
         },
         {
             "type": "Label",
