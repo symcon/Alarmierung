@@ -14,6 +14,7 @@ class Alerting extends IPSModule
         $this->RegisterPropertyString('Targets', '[]');
         $this->RegisterPropertyInteger('ActivateDelay', 10);
         $this->RegisterPropertyBoolean('NightAlarm', false);
+        $this->RegisterPropertyInteger('TriggerDelay', 0);
 
         //Variables
         $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 10);
@@ -28,6 +29,7 @@ class Alerting extends IPSModule
 
         //Timer
         $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('TriggerDelay', 0, 'ARM_UpdateDelayedAlarm($_IPS[\'TARGET\']);');
     }
 
     public function ApplyChanges()
@@ -41,7 +43,7 @@ class Alerting extends IPSModule
         //Update active sensors
         $this->updateActive();
 
-        //DelayDispaly
+        //DelayDisplay
         $this->SetBuffer('Active', json_encode($this->GetValue('Active')));
         $this->stopDelay();
 
@@ -80,20 +82,23 @@ class Alerting extends IPSModule
         $config = $original['configuration'];
         // Sensors
         $sensors = json_decode($config['Sensors'], true);
-        $newSensors = [];
-        foreach ($sensors as $sensor) {
-            $newSensors[] = ['ID' => $sensor['ID'], 'NightAlarm' => true];
+        if (!empty($sensors) && !isset($sensors[0]['NightAlarm'])) {
+            $newSensors = [];
+            foreach ($sensors as $sensor) {
+                $newSensors[] = ['ID' => $sensor['ID'], 'NightAlarm' => true];
+            }
+            $config['Sensors'] = json_encode($newSensors);
         }
-        $config['Sensors'] = json_encode($newSensors);
 
         // Targets
         $targets = json_decode($config['Targets'], true);
-        $newTargets = [];
-        foreach ($targets as $target) {
-            $newTargets[] = ['VariableID' => $target['ID'], 'Type' => 0 /* Variable */];
+        if (!empty($targets) && isset($targets[0]['ID'])) {
+            $newTargets = [];
+            foreach ($targets as $target) {
+                $newTargets[] = ['VariableID' => $target['ID'], 'Type' => 0 /* Variable */];
+            }
+            $config['Targets'] = json_encode($newTargets);
         }
-
-        $config['Targets'] = json_encode($newTargets);
         $original['configuration'] = $config;
 
         return json_encode($original);
@@ -108,10 +113,14 @@ class Alerting extends IPSModule
         $nightActive = $nightAlarm ? ($this->GetValue('Active') === 2 /* Night */) : false;
         foreach ($sensors as $sensor) {
             if ($sensor->ID == $SenderID) {
-                if ($nightActive && $sensor->NightAlarm) {
+                if ($nightActive && !$sensor->NightAlarm) {
                     return;
                 } else {
-                    $this->triggerAlert($sensor->ID, GetValue($sensor->ID));
+                    if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
+                        $this->triggerAlarmDelayed($sensor->ID, GetValue($sensor->ID));
+                    } else {
+                        $this->triggerAlert($sensor->ID, GetValue($sensor->ID));
+                    }
                     $this->updateActive();
                     return;
                 }
@@ -225,6 +234,44 @@ class Alerting extends IPSModule
         }
     }
 
+    public function triggerAlarmDelayed($variableID, $value)
+    {
+        //Only enable alarming if our module is active
+        if (!json_decode($this->GetBuffer('Active'))) {
+            return;
+        }
+
+        
+        $bufferString = $this->GetBuffer('TriggeredVariables');
+        $triggeredVariables = empty($bufferString) ? [] : json_decode($bufferString);
+        if ($this->getAlertValue($variableID, $value)) {
+            if (!in_array($variableID, $triggeredVariables)) {
+                $triggeredVariables[] = $variableID;
+            }
+            $this->SetBuffer('TriggeredVariables', json_encode($triggeredVariables));
+            $delay = $this->ReadPropertyInteger('TriggerDelay') * 1000;
+            $this->SetTimerInterval('TriggerDelay', $delay);
+        } else {
+            if (!in_array($variableID, $triggeredVariables)) {
+                $triggeredVariables[] = $variableID;
+            }
+            $this->SetBuffer('TriggeredVariables', json_encode($triggeredVariables));
+        }
+    }
+
+    public function UpdateDelayedAlarm()
+    {
+        $bufferString = $this->GetBuffer('TriggeredVariables');
+        $triggeredVariables = empty($bufferString) ? [] : json_decode($bufferString);
+        if (!empty($triggeredVariables)) {
+            $this->triggerAlert($triggeredVariables[0], GetValue($triggeredVariables[0]));
+            // We may want to only remove the variable that triggered the alarm. So the we would have staggered alarms
+            $triggeredVariables = [];
+            $this->SetBuffer('TriggeredVariables', json_encode($triggeredVariables));
+            $this->SetTimerInterval('TriggerDelay', 0);
+        }
+    }
+
     public function Activate()
     {
         $this->SetBuffer('Active', json_encode(true));
@@ -329,7 +376,7 @@ class Alerting extends IPSModule
                     $name .= ' (' . IPS_GetName($action->parameters->TARGET) . ')';
                 }
             }
-            $formdata->elements[4]->values[] = [
+            $formdata->elements[5]->values[] = [
                 'Name'      => $name,
                 'Status'    => $status,
                 'rowColor'  => $rowColor,
@@ -465,7 +512,7 @@ class Alerting extends IPSModule
         $nightAlarm = $this->GetValue('Active') === 2 /* Night */;
         foreach ($sensors as $sensor) {
             $sensorID = $sensor['ID'];
-            if ($nightAlarm && $sensor['NightAlarm']) {
+            if ($nightAlarm && !$sensor['NightAlarm']) {
                 continue;
             }
             if ($this->getAlertValue($sensorID, GetValue($sensorID))) {

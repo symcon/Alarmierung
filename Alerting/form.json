@@ -49,6 +49,13 @@
             "values": []
         },
         {
+            "type": "NumberSpinner",
+            "name": "TriggerDelay",
+            "caption": "Trigger Delay",
+            "suffix": "Seconds",
+            "minimum": 0
+        },
+        {
             "type": "Label",
             "label": "Add/Delete target variables, which react on the alarm"
         },
