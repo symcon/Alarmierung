@@ -16,13 +16,12 @@ class Alerting extends IPSModule
         $this->RegisterPropertyBoolean('NightAlarm', false);
         $this->RegisterPropertyInteger('TriggerDelay', 0);
 
-        //Variables
-        $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 10);
-        $this->EnableAction('Active');
+        //Variables       
         $this->RegisterVariableString('DelayDisplay', $this->Translate('Time to Activation'), '', 20);
         $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 30);
         $this->EnableAction('Alert');
         $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox', 40);
+        $this->RegisterVariableInteger('TriggerDelayDisplay', $this->Translate('Alarm will be triggered'), ['PRESENTATION' => VARIABLE_PRESENTATION_DURATION, 'COUNTDOWN_TYPE' => 1 /* Until value in variable */], 50);
 
         //Attributes
         $this->RegisterAttributeInteger('LastAlert', 0);
@@ -46,6 +45,7 @@ class Alerting extends IPSModule
         //DelayDisplay
         $this->SetBuffer('Active', json_encode($this->GetValue('Active')));
         $this->stopDelay();
+        $this->stopTriggerDelay();
 
         $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
         $presentation = $nightAlarm ? ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode([
@@ -55,8 +55,8 @@ class Alerting extends IPSModule
             ['Caption' => $this->Translate('Disarm'), 'Value' => 3, 'IconActive' => false, 'Color' => -1]
         ])] : ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH];
         $this->MaintainVariable('Active', $this->Translate('Active'), $nightAlarm ? VARIABLETYPE_INTEGER : VARIABLETYPE_BOOLEAN, $presentation, 0, true);
-        $this->MaintainVariable('DelayDisplay', $this->Translate('Time to Activation'), VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_DURATION, 'COUNTDOWN_TYPE' => 1 /* Until value in variable */], 0, true);
         $this->EnableAction('Active');
+        $this->MaintainVariable('DelayDisplay', $this->Translate('Time to Activation'), VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_DURATION, 'COUNTDOWN_TYPE' => 1 /* Until value in variable */], 0, true);
 
         //Deleting all References
         foreach ($this->GetReferenceList() as $referenceID) {
@@ -241,33 +241,38 @@ class Alerting extends IPSModule
             return;
         }
 
-        
-        $bufferString = $this->GetBuffer('TriggeredVariables');
-        $triggeredVariables = empty($bufferString) ? [] : json_decode($bufferString);
+        $triggeredVariables = $this->getTriggeredVariables();
         if ($this->getAlertValue($variableID, $value)) {
             if (!in_array($variableID, $triggeredVariables)) {
                 $triggeredVariables[] = $variableID;
             }
-            $this->SetBuffer('TriggeredVariables', json_encode($triggeredVariables));
-            $delay = $this->ReadPropertyInteger('TriggerDelay') * 1000;
-            $this->SetTimerInterval('TriggerDelay', $delay);
-        } else {
-            if (!in_array($variableID, $triggeredVariables)) {
-                $triggeredVariables[] = $variableID;
+            $this->setTriggeredVariables($triggeredVariables);
+            // We only want to start the timer if it is not already running
+            if ($this->GetTimerInterval('TriggerDelay') === 0) {
+                $this->startTriggerDelay();
             }
-            $this->SetBuffer('TriggeredVariables', json_encode($triggeredVariables));
+        } else {
+            if (($index = array_search($variableID, $triggeredVariables)) !== false) {
+                unset($triggeredVariables[$index]);
+                // We need to do this becaus unset keeps the indices whichl lead to the ids being encoded as an object
+                $triggeredVariables = array_values($triggeredVariables);
+            }
+            $this->setTriggeredVariables($triggeredVariables);
+            if (empty($triggeredVariables)) {
+                $this->stopTriggerDelay();
+            }
         }
     }
 
     public function UpdateDelayedAlarm()
     {
-        $bufferString = $this->GetBuffer('TriggeredVariables');
-        $triggeredVariables = empty($bufferString) ? [] : json_decode($bufferString);
+        
+        $triggeredVariables = $this->getTriggeredVariables();
         if (!empty($triggeredVariables)) {
             $this->triggerAlert($triggeredVariables[0], GetValue($triggeredVariables[0]));
+            $this->stopTriggerDelay();
             // We may want to only remove the variable that triggered the alarm. So the we would have staggered alarms
-            $triggeredVariables = [];
-            $this->SetBuffer('TriggeredVariables', json_encode($triggeredVariables));
+            $this->setTriggeredVariables([]);
             $this->SetTimerInterval('TriggerDelay', 0);
         }
     }
@@ -445,6 +450,15 @@ class Alerting extends IPSModule
         $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
+    private function getTriggeredVariables() {
+        $bufferString = $this->GetBuffer('TriggeredVariables');
+        return empty($bufferString) ? [] : json_decode($bufferString, true);
+    }
+    
+    private function setTriggeredVariables($ids) {
+        $this->SetBuffer('TriggeredVariables', json_encode($ids));
+    }
+
     private function triggerAlert($sourceID, $sourceValue)
     {
 
@@ -543,5 +557,22 @@ class Alerting extends IPSModule
         $this->SetTimerInterval('Delay', 0);
         $this->SetValue('DelayDisplay', 0);
         IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
+    }
+
+    private function startTriggerDelay()
+    {
+        //Unhide countdown
+        IPS_SetHidden($this->GetIDForIdent('TriggerDelayDisplay'), false);
+        $this->SetValue('TriggerDelayDisplay', time() + $this->ReadPropertyInteger('TriggerDelay'));
+
+        //Start timer for activation
+        $this->SetTimerInterval('TriggerDelay', $this->ReadPropertyInteger('TriggerDelay') * 1000);
+    }
+
+    private function stopTriggerDelay()
+    {
+        $this->SetTimerInterval('TriggerDelay', 0);
+        $this->SetValue('TriggerDelayDisplay', 0);
+        IPS_SetHidden($this->GetIDForIdent('TriggerDelayDisplay'), true);
     }
 }

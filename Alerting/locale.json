@@ -30,6 +30,7 @@
             "Disarm": "Aus",
             "Trigger Delay": "Auslöseverzögerung",
             "Activate support for night alarm": "Unterstützung für Nachtalarm aktivieren",
+            "Alarm will be triggered": "Alarm wird ausgelöst",
             "https://www.symcon.de/en/service/documentation/module-reference/alerting/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/alarmierung/"
         }
     }
