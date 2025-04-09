@@ -17,7 +17,6 @@ class Alerting extends IPSModule
         $this->RegisterPropertyInteger('TriggerDelay', 0);
 
         //Variables
-        $this->RegisterVariableString('DelayDisplay', $this->Translate('Time to Activation'), '', 20);
         $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 30);
         $this->EnableAction('Alert');
         $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox', 40);
@@ -27,8 +26,8 @@ class Alerting extends IPSModule
         $this->RegisterAttributeInteger('LastAlert', 0);
 
         //Timer
-        $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('TriggerDelay', 0, 'ARM_UpdateDelayedAlarm($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('Delay', 0, 'ARM_StopActivateDelay($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('TriggerDelay', 0, 'ARM_TriggerDelayed($_IPS[\'TARGET\']);');
     }
 
     public function ApplyChanges()
@@ -38,14 +37,6 @@ class Alerting extends IPSModule
 
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
         $targets = json_decode($this->ReadPropertyString('Targets'));
-
-        //Update active sensors
-        $this->updateActive();
-
-        //DelayDisplay
-        $this->SetBuffer('Active', json_encode($this->GetValue('Active')));
-        $this->stopDelay();
-        $this->stopTriggerDelay();
 
         $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
         $presentation = $nightAlarm ? ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode([
@@ -57,6 +48,9 @@ class Alerting extends IPSModule
         $this->MaintainVariable('Active', $this->Translate('Active'), $nightAlarm ? VARIABLETYPE_INTEGER : VARIABLETYPE_BOOLEAN, $presentation, 0, true);
         $this->EnableAction('Active');
         $this->MaintainVariable('DelayDisplay', $this->Translate('Time to Activation'), VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_DURATION, 'COUNTDOWN_TYPE' => 1 /* Until value in variable */], 0, true);
+
+        //Update active sensors
+        $this->updateActive();
 
         //Deleting all References
         foreach ($this->GetReferenceList() as $referenceID) {
@@ -109,20 +103,25 @@ class Alerting extends IPSModule
         $this->SendDebug('MessageSink', 'SenderID: ' . $SenderID . ', Message: ' . $Message, 0);
 
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
-        $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
-        $nightActive = $nightAlarm ? ($this->GetValue('Active') === 2 /* Night */) : false;
-        foreach ($sensors as $sensor) {
-            if ($sensor->ID == $SenderID) {
-                if ($nightActive && !$sensor->NightAlarm) {
-                    return;
-                } else {
-                    if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
-                        $this->triggerAlarmDelayed($sensor->ID, GetValue($sensor->ID));
+        if ($this->armed()) {
+            $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+            $nightActive = $nightAlarm ? ($this->GetValue('Active') === 2 /* Night */) : false;
+            foreach ($sensors as $sensor) {
+                if ($sensor->ID == $SenderID) {
+                    if ($nightActive && !$sensor->NightAlarm) {
+                        return;
                     } else {
-                        $this->triggerAlert($sensor->ID, GetValue($sensor->ID));
+                        if ($this->getAlertValue($sensor->ID, $Data[0])) {
+                            $this->WriteAttributeInteger('LastAlert', $sensor->ID);
+                            if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
+                                $this->startTriggerDelay();
+                            } else {
+                                $this->forceAlert(true);
+                            }
+                        }
+                        $this->updateActive();
+                        return;
                     }
-                    $this->updateActive();
-                    return;
                 }
             }
         }
@@ -130,47 +129,7 @@ class Alerting extends IPSModule
 
     public function SetAlert(bool $Status)
     {
-        $targets = json_decode($this->ReadPropertyString('Targets'));
-
-        //Lets notify all target devices
-        foreach ($targets as $target) {
-            // We only want to set the variable / execute the action if the status matches
-            if ($target->Type === 0) {
-                //only allow links
-                if (IPS_VariableExists($target->VariableID)) {
-                    $v = IPS_GetVariable($target->VariableID);
-                    $profileName = $this->GetProfileName($v);
-
-                    //If we somehow do not have a profile take care that we do not fail immediately
-                    $isReversed = $this->profileInverted($target->VariableID);
-                    if ($profileName != '') {
-                        $variableProfile = IPS_GetVariableProfile($profileName);
-                        //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
-                        if ($Status != $isReversed) {
-                            $actionValue = $variableProfile['MaxValue'];
-                        } else {
-                            $actionValue = $variableProfile['MinValue'];
-                        }
-                        //Reduce to boolean if required
-
-                        if ($v['VariableType'] == 0) {
-                            $actionValue = $isReversed ? !$Status : $Status;
-                        }
-                    } else {
-                        $actionValue = $Status;
-                    }
-                    RequestAction($target->VariableID, $actionValue);
-                }
-            } else {
-                if ($target->AlarmStatus !== $Status) {
-                    continue;
-                }
-                $action = json_decode($target->Action, true);
-                IPS_RunAction($action['actionID'], $action['parameters']);
-            }
-        }
-
-        SetValue($this->GetIDForIdent('Alert'), $Status);
+        $this->forceAlert($Status, false);
     }
 
     public function GetLastAlertID()
@@ -196,20 +155,15 @@ class Alerting extends IPSModule
     public function SetActive(bool $Value)
     {
         if (!$Value) {
-            $this->SetBuffer('Active', json_encode(false));
-            $this->SetAlert(false);
-            $this->stopDelay();
+            $this->forceAlert(false);
+            $this->stopTriggerDelay();
+            $this->StopActivateDelay();
             return;
         }
 
-        //Start activation process only if not already active
-        if (!json_decode($this->GetBuffer('Active'))) {
-
-            //Only start with delay when delay is > 0
-            if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
-                $this->startDelay();
-            } else {
-                $this->SetBuffer('Active', json_encode(true));
+        if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
+            if ($this->GetTimerInterval('Delay') === 0) {
+                $this->startActivationDelay();
             }
         }
     }
@@ -218,39 +172,19 @@ class Alerting extends IPSModule
     {
         switch ($Ident) {
             case 'Active':
+                $this->SetValue($Ident, $Value);
                 if ($this->ReadPropertyBoolean('NightAlarm')) {
                     $this->SetActive(in_array($Value, [1/* Away */, 2 /* Night */]));
-                    SetValue($this->GetIDForIdent('Active'), $Value);
                 } else {
-                    SetValue($this->GetIDForIdent('Active'), $Value);
                     $this->SetActive($Value);
                 }
                 break;
             case 'Alert':
-                $this->SetAlert($Value);
+                $this->forceAlert($Value, true);
                 break;
             default:
                 throw new Exception('Invalid ident');
         }
-    }
-
-    public function UpdateDelayedAlarm()
-    {
-
-        $triggeredVariables = $this->getTriggeredVariables();
-        if (!empty($triggeredVariables)) {
-            $this->triggerAlert($triggeredVariables[0], GetValue($triggeredVariables[0]));
-            $this->stopTriggerDelay();
-            // We may want to only remove the variable that triggered the alarm. So the we would have staggered alarms
-            $this->setTriggeredVariables([]);
-            $this->SetTimerInterval('TriggerDelay', 0);
-        }
-    }
-
-    public function Activate()
-    {
-        $this->SetBuffer('Active', json_encode(true));
-        $this->stopDelay();
     }
 
     public function GetConfigurationForm()
@@ -420,58 +354,79 @@ class Alerting extends IPSModule
         $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
-    private function triggerAlarmDelayed($variableID, $value)
+    public function TriggerDelayed()
     {
-        //Only enable alarming if our module is active
-        if (!json_decode($this->GetBuffer('Active'))) {
+        $this->stopTriggerDelay();
+        $this->forceAlert(true);
+    }
+
+    // Sets the activation delay to 0 and hides the variable
+    public function StopActivateDelay()
+    {
+        $this->SetTimerInterval('Delay', 0);
+        $this->SetValue('DelayDisplay', 0);
+        IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
+    }
+
+    private function forceAlert(bool $Status, bool $force = false)
+    {
+
+        // We only want to trigger the alarm once
+        // If alarm was set manually we always want to proceed
+        if ($this->GetValue('Alert') && !$force) {
             return;
         }
+        $this->SetValue('Alert', $Status);
+        $targets = json_decode($this->ReadPropertyString('Targets'));
 
-        $triggeredVariables = $this->getTriggeredVariables();
-        if ($this->getAlertValue($variableID, $value)) {
-            if (!in_array($variableID, $triggeredVariables)) {
-                $triggeredVariables[] = $variableID;
+        // Let's notify all target devices
+        foreach ($targets as $target) {
+            // We only want to set the variable / execute the action if the status matches
+            if ($target->Type === 0) {
+                //only allow links
+                if (IPS_VariableExists($target->VariableID)) {
+                    $v = IPS_GetVariable($target->VariableID);
+                    $profileName = $this->GetProfileName($v);
+
+                    //If we somehow do not have a profile take care that we do not fail immediately
+                    $isReversed = $this->profileInverted($target->VariableID);
+                    if ($profileName != '') {
+                        $variableProfile = IPS_GetVariableProfile($profileName);
+                        //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
+                        if ($Status != $isReversed) {
+                            $actionValue = $variableProfile['MaxValue'];
+                        } else {
+                            $actionValue = $variableProfile['MinValue'];
+                        }
+                        //Reduce to boolean if required
+
+                        if ($v['VariableType'] == 0) {
+                            $actionValue = $isReversed ? !$Status : $Status;
+                        }
+                    } else {
+                        $actionValue = $Status;
+                    }
+                    RequestAction($target->VariableID, $actionValue);
+                }
+            } else {
+                if ($target->AlarmStatus !== $Status) {
+                    continue;
+                }
+                $action = json_decode($target->Action, true);
+                IPS_RunAction($action['actionID'], $action['parameters']);
             }
-            $this->setTriggeredVariables($triggeredVariables);
-            // We only want to start the timer if it is not already running
-            if ($this->GetTimerInterval('TriggerDelay') === 0) {
-                $this->startTriggerDelay();
-            }
+        }
+    }
+
+    private function armed()
+    {
+        $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+        $active = $this->GetValue('Active');
+        $delayExpired = $this->GetTimerInterval('Delay') === 0;
+        if (!$nightAlarm) {
+            return $active && $delayExpired;
         } else {
-            if (($index = array_search($variableID, $triggeredVariables)) !== false) {
-                unset($triggeredVariables[$index]);
-                // We need to do this becaus unset keeps the indices whichl lead to the ids being encoded as an object
-                $triggeredVariables = array_values($triggeredVariables);
-            }
-            $this->setTriggeredVariables($triggeredVariables);
-            if (empty($triggeredVariables)) {
-                $this->stopTriggerDelay();
-            }
-        }
-    }
-
-    private function getTriggeredVariables()
-    {
-        $bufferString = $this->GetBuffer('TriggeredVariables');
-        return empty($bufferString) ? [] : json_decode($bufferString, true);
-    }
-
-    private function setTriggeredVariables($ids)
-    {
-        $this->SetBuffer('TriggeredVariables', json_encode($ids));
-    }
-
-    private function triggerAlert($sourceID, $sourceValue)
-    {
-
-        //Only enable alarming if our module is active
-        if (!json_decode($this->GetBuffer('Active'))) {
-            return;
-        }
-
-        if ($this->getAlertValue($sourceID, $sourceValue)) {
-            $this->WriteAttributeInteger('LastAlert', $sourceID);
-            $this->SetAlert(true);
+            return in_array($active, [2 /* Night */, 1 /* Away */]) && $delayExpired;
         }
     }
 
@@ -544,7 +499,7 @@ class Alerting extends IPSModule
         IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
     }
 
-    private function startDelay()
+    private function startActivationDelay()
     {
         //Unhide countdown
         IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), false);
@@ -552,13 +507,6 @@ class Alerting extends IPSModule
 
         //Start timer for activation
         $this->SetTimerInterval('Delay', $this->ReadPropertyInteger('ActivateDelay') * 1000);
-    }
-
-    private function stopDelay()
-    {
-        $this->SetTimerInterval('Delay', 0);
-        $this->SetValue('DelayDisplay', 0);
-        IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
     }
 
     private function startTriggerDelay()
@@ -571,8 +519,7 @@ class Alerting extends IPSModule
         $this->SetTimerInterval('TriggerDelay', $this->ReadPropertyInteger('TriggerDelay') * 1000);
     }
 
-    private function stopTriggerDelay()
-    {
+    private function stopTriggerDelay() {
         $this->SetTimerInterval('TriggerDelay', 0);
         $this->SetValue('TriggerDelayDisplay', 0);
         IPS_SetHidden($this->GetIDForIdent('TriggerDelayDisplay'), true);
