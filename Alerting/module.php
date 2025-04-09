@@ -519,7 +519,8 @@ class Alerting extends IPSModule
         $this->SetTimerInterval('TriggerDelay', $this->ReadPropertyInteger('TriggerDelay') * 1000);
     }
 
-    private function stopTriggerDelay() {
+    private function stopTriggerDelay()
+    {
         $this->SetTimerInterval('TriggerDelay', 0);
         $this->SetValue('TriggerDelayDisplay', 0);
         IPS_SetHidden($this->GetIDForIdent('TriggerDelayDisplay'), true);
