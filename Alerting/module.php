@@ -155,7 +155,7 @@ class Alerting extends IPSModule
     public function SetActive(bool $Value)
     {
         if (!$Value) {
-            $this->forceAlert(false);
+            $this->forceAlert(false, true);
             $this->stopTriggerDelay();
             $this->StopActivateDelay();
             return;
