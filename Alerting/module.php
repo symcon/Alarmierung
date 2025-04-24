@@ -129,7 +129,7 @@ class Alerting extends IPSModule
 
     public function SetAlert(bool $Status)
     {
-        $this->forceAlert($Status, false);
+        $this->forceAlert($Status, true);
     }
 
     public function GetLastAlertID()
@@ -155,7 +155,7 @@ class Alerting extends IPSModule
     public function SetActive(bool $Value)
     {
         if (!$Value) {
-            $this->forceAlert(false, true);
+            $this->forceAlert(false);
             $this->stopTriggerDelay();
             $this->StopActivateDelay();
             return;
@@ -373,9 +373,10 @@ class Alerting extends IPSModule
 
         // We only want to trigger the alarm once
         // If alarm was set manually we always want to proceed
-        if ($this->GetValue('Alert') && !$force) {
+        if ($Status == $this->GetValue('Alert') && !$force) {
             return;
         }
+
         $this->SetValue('Alert', $Status);
         $targets = json_decode($this->ReadPropertyString('Targets'));
 
