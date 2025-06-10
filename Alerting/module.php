@@ -13,21 +13,21 @@ class Alerting extends IPSModule
         $this->RegisterPropertyString('Sensors', '[]');
         $this->RegisterPropertyString('Targets', '[]');
         $this->RegisterPropertyInteger('ActivateDelay', 10);
+        $this->RegisterPropertyBoolean('NightAlarm', false);
+        $this->RegisterPropertyInteger('TriggerDelay', 0);
 
         //Variables
-        $this->RegisterVariableBoolean('Active', $this->Translate('Active'), '~Switch', 10);
-        $this->EnableAction('Active');
-        $this->RegisterVariableString('DelayDisplay', $this->Translate('Time to Activation'), '', 20);
         $this->RegisterVariableBoolean('Alert', $this->Translate('Alert'), '~Alert', 30);
         $this->EnableAction('Alert');
         $this->RegisterVariableString('ActiveSensors', $this->Translate('Active Sensors'), '~TextBox', 40);
+        $this->RegisterVariableInteger('TriggerDelayDisplay', $this->Translate('Alarm will be triggered'), ['PRESENTATION' => VARIABLE_PRESENTATION_DURATION, 'COUNTDOWN_TYPE' => 1 /* Until value in variable */], 50);
 
         //Attributes
         $this->RegisterAttributeInteger('LastAlert', 0);
 
         //Timer
-        $this->RegisterTimer('Delay', 0, 'ARM_Activate($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('UpdateDisplay', 0, 'ARM_UpdateDisplay($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('Delay', 0, 'ARM_StopActivateDelay($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('TriggerDelay', 0, 'ARM_TriggerDelayed($_IPS[\'TARGET\']);');
     }
 
     public function ApplyChanges()
@@ -38,12 +38,19 @@ class Alerting extends IPSModule
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
         $targets = json_decode($this->ReadPropertyString('Targets'));
 
+        $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+        $presentation = $nightAlarm ? ['PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION, 'OPTIONS' => json_encode([
+            ['Caption' => $this->Translate('Stay'), 'Value' => 0, 'IconActive' => false, 'Color' => -1],
+            ['Caption' => $this->Translate('Away'), 'Value' => 1, 'IconActive' => false, 'Color' => -1],
+            ['Caption' => $this->Translate('Night'), 'Value' => 2, 'IconActive' => false, 'Color' => -1],
+            ['Caption' => $this->Translate('Disarm'), 'Value' => 3, 'IconActive' => false, 'Color' => -1]
+        ])] : ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH];
+        $this->MaintainVariable('Active', $this->Translate('Active'), $nightAlarm ? VARIABLETYPE_INTEGER : VARIABLETYPE_BOOLEAN, $presentation, 0, true);
+        $this->EnableAction('Active');
+        $this->MaintainVariable('DelayDisplay', $this->Translate('Time to Activation'), VARIABLETYPE_INTEGER, ['PRESENTATION' => VARIABLE_PRESENTATION_DURATION, 'COUNTDOWN_TYPE' => 1 /* Until value in variable */], 0, true);
+
         //Update active sensors
         $this->updateActive();
-
-        //DelayDispaly
-        $this->SetBuffer('Active', json_encode($this->GetValue('Active')));
-        $this->stopDelay();
 
         //Deleting all References
         foreach ($this->GetReferenceList() as $referenceID) {
@@ -52,7 +59,7 @@ class Alerting extends IPSModule
 
         //Adding references for targets
         foreach ($targets as $target) {
-            $this->RegisterReference($target->ID);
+            $this->RegisterReference($target->VariableID);
         }
         foreach ($sensors as $sensor) {
             $this->RegisterMessage($sensor->ID, VM_UPDATE);
@@ -60,54 +67,69 @@ class Alerting extends IPSModule
         }
     }
 
+    public function Migrate($JSONData)
+    {
+        // Never delete this line!
+        parent::Migrate($JSONData);
+
+        $original = json_decode($JSONData, true);
+        $config = $original['configuration'];
+        // Sensors
+        $sensors = json_decode($config['Sensors'], true);
+        if (!empty($sensors) && !isset($sensors[0]['NightAlarm'])) {
+            $newSensors = [];
+            foreach ($sensors as $sensor) {
+                $newSensors[] = ['ID' => $sensor['ID'], 'NightAlarm' => true];
+            }
+            $config['Sensors'] = json_encode($newSensors);
+        }
+
+        // Targets
+        $targets = json_decode($config['Targets'], true);
+        if (!empty($targets) && isset($targets[0]['ID'])) {
+            $newTargets = [];
+            foreach ($targets as $target) {
+                $newTargets[] = ['VariableID' => $target['ID'], 'Type' => 0 /* Variable */];
+            }
+            $config['Targets'] = json_encode($newTargets);
+        }
+        $original['configuration'] = $config;
+
+        return json_encode($original);
+    }
+
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
     {
         $this->SendDebug('MessageSink', 'SenderID: ' . $SenderID . ', Message: ' . $Message, 0);
 
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
-        foreach ($sensors as $sensor) {
-            if ($sensor->ID == $SenderID) {
-                $this->triggerAlert($sensor->ID, GetValue($sensor->ID));
-                $this->updateActive();
-                return;
+        if ($this->armed()) {
+            $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+            $nightActive = $nightAlarm ? ($this->GetValue('Active') === 2 /* Night */) : false;
+            foreach ($sensors as $sensor) {
+                if ($sensor->ID == $SenderID) {
+                    if ($nightActive && !$sensor->NightAlarm) {
+                        return;
+                    } else {
+                        if ($this->getAlertValue($sensor->ID, $Data[0])) {
+                            $this->WriteAttributeInteger('LastAlert', $sensor->ID);
+                            if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
+                                $this->startTriggerDelay();
+                            } else {
+                                $this->forceAlert(true);
+                            }
+                        }
+                        $this->updateActive();
+                        return;
+                    }
+                }
             }
         }
     }
 
     public function SetAlert(bool $Status)
     {
-        $targets = json_decode($this->ReadPropertyString('Targets'));
-
-        //Lets notify all target devices
-        foreach ($targets as $targetID) {
-            //only allow links
-            if (IPS_VariableExists($targetID->ID)) {
-                $v = IPS_GetVariable($targetID->ID);
-                $profileName = $this->GetProfileName($v);
-
-                //If we somehow do not have a profile take care that we do not fail immediately
-                $isReversed = $this->profileInverted($targetID->ID);
-                if ($profileName != '') {
-                    $variableProfile = IPS_GetVariableProfile($profileName);
-                    //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
-                    if ($Status != $isReversed) {
-                        $actionValue = $variableProfile['MaxValue'];
-                    } else {
-                        $actionValue = $variableProfile['MinValue'];
-                    }
-                    //Reduce to boolean if required
-
-                    if ($v['VariableType'] == 0) {
-                        $actionValue = $isReversed ? !$Status : $Status;
-                    }
-                } else {
-                    $actionValue = $Status;
-                }
-                RequestAction($targetID->ID, $actionValue);
-            }
-        }
-
-        SetValue($this->GetIDForIdent('Alert'), $Status);
+        $this->forceAlert($Status, true);
     }
 
     public function GetLastAlertID()
@@ -132,22 +154,16 @@ class Alerting extends IPSModule
 
     public function SetActive(bool $Value)
     {
-        SetValue($this->GetIDForIdent('Active'), $Value);
         if (!$Value) {
-            $this->SetBuffer('Active', json_encode(false));
-            $this->SetAlert(false);
-            $this->stopDelay();
+            $this->forceAlert(false);
+            $this->stopTriggerDelay();
+            $this->StopActivateDelay();
             return;
         }
 
-        //Start activation process only if not already active
-        if (!json_decode($this->GetBuffer('Active'))) {
-
-            //Only start with delay when delay is > 0
-            if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
-                $this->startDelay();
-            } else {
-                $this->SetBuffer('Active', json_encode(true));
+        if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
+            if ($this->GetTimerInterval('Delay') === 0) {
+                $this->startActivationDelay();
             }
         }
     }
@@ -156,30 +172,19 @@ class Alerting extends IPSModule
     {
         switch ($Ident) {
             case 'Active':
-                $this->SetActive($Value);
+                $this->SetValue($Ident, $Value);
+                if ($this->ReadPropertyBoolean('NightAlarm')) {
+                    $this->SetActive(in_array($Value, [1/* Away */, 2 /* Night */]));
+                } else {
+                    $this->SetActive($Value);
+                }
                 break;
             case 'Alert':
-                $this->SetAlert($Value);
+                $this->forceAlert($Value, true);
                 break;
             default:
                 throw new Exception('Invalid ident');
         }
-    }
-
-    public function Activate()
-    {
-        $this->SetBuffer('Active', json_encode(true));
-        $this->stopDelay();
-    }
-
-    public function UpdateDisplay()
-    {
-        if (json_decode($this->GetBuffer('TimeActivated')) <= time()) {
-            $this->stopDelay();
-            return;
-        }
-        $secondsRemaining = json_decode($this->GetBuffer('TimeActivated')) - time();
-        $this->SetValue('DelayDisplay', sprintf('%02d:%02d:%02d', ($secondsRemaining / 3600), ($secondsRemaining / 60 % 60), $secondsRemaining % 60));
     }
 
     public function GetConfigurationForm()
@@ -200,10 +205,15 @@ class Alerting extends IPSModule
 
         $formdata = json_decode(file_get_contents(__DIR__ . '/form.json'));
 
+        // Hide night alarm column
+        $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+        $formdata->elements[2]->columns[2]->visible = $nightAlarm;
+        $formdata->elements[2]->columns[2]->edit->visible = $nightAlarm;
+
         //Annotate existing elements
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
         foreach ($sensors as $sensor) {
-            //We only need to add annotations. Remaining data is merged from persistance automatically.
+            //We only need to add annotations. Remaining data is merged from persistence automatically.
             //Order is determinted by the order of array elements
             if (IPS_ObjectExists($sensor->ID) && $sensor->ID !== 0) {
                 $status = 'OK';
@@ -213,11 +223,11 @@ class Alerting extends IPSModule
                     $rowColor = '#FFC0C0';
                 }
 
-                $formdata->elements[1]->values[] = [
+                $formdata->elements[2]->values[] = [
                     'Status' => $status,
                 ];
             } else {
-                $formdata->elements[1]->values[] = [
+                $formdata->elements[2]->values[] = [
                     'rowColor' => '#FFC0C0',
                 ];
             }
@@ -226,46 +236,198 @@ class Alerting extends IPSModule
         //Annotate existing elements
         $targets = json_decode($this->ReadPropertyString('Targets'));
         foreach ($targets as $target) {
-            //We only need to add annotations. Remaining data is merged from persistance automatically.
-            //Order is determinted by the order of array elements
-            if (IPS_ObjectExists($target->ID) && $target->ID !== 0) {
-                $status = 'OK';
-                $rowColor = '';
-                if (!IPS_VariableExists($target->ID)) {
-                    $status = $this->Translate('Not a variable');
-                    $rowColor = '#FFC0C0';
-                } elseif (!HasAction($target->ID)) {
-                    $status = $this->Translate('No action set');
+            $status = 'OK';
+            $rowColor = '';
+            $name = '';
+            if (isset($target->Type) && $target->Type === 0 /* Variable */) {
+                //We only need to add annotations. Remaining data is merged from persistence automatically.
+                //Order is determined by the order of array elements
+                if (IPS_ObjectExists($target->VariableID) && $target->VariableID !== 0) {
+                    if (!IPS_VariableExists($target->VariableID)) {
+                        $status = $this->Translate('Not a variable');
+                        $rowColor = '#FFC0C0';
+                    } elseif (!HasAction($target->VariableID)) {
+                        $status = $this->Translate('No action set');
+                        $rowColor = '#FFC0C0';
+                    }
+                    $name = IPS_GetName($target->VariableID);
+                } else {
+                    $status = $this->Translate('Not found!');
                     $rowColor = '#FFC0C0';
                 }
 
-                $formdata->elements[3]->values[] = [
-                    'Name'     => IPS_GetName($target->ID),
-                    'Status'   => $status,
-                    'rowColor' => $rowColor,
-                ];
-            } else {
-                $formdata->elements[3]->values[] = [
-                    'Name'     => $this->Translate('Not found!'),
-                    'rowColor' => '#FFC0C0',
-                ];
+            } elseif (isset($target->Action)) {
+                $actionDetails = [];
+                $action = json_decode($target->Action);
+                if (function_exists('IPS_GetAction')) {
+                    $actionDetails = json_decode(IPS_GetAction($action->actionID));
+                    $name = $actionDetails->caption;
+                } else {
+                    $actions = json_decode(IPS_GetActions());
+                    foreach ($actions as $entry) {
+                        if ($entry->id == $action->actionID) {
+                            $language = IPS_GetSystemLanguage();
+                            $caption = $entry->caption;
+                            if (isset($entry->locale->$language)) {
+                                $name = $entry->locale->$caption;
+                            } else {
+                                $lang = explode('_', $language)[0];
+                                if (isset($entry->locale->$lang)) {
+                                    $name = $entry->locale->$lang->$caption;
+                                }
+
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (isset($action->parameters->TARGET) && IPS_ObjectExists($action->parameters->TARGET)) {
+                    $name .= ' (' . IPS_GetName($action->parameters->TARGET) . ')';
+                }
             }
+            $formdata->elements[5]->values[] = [
+                'Name'      => $name,
+                'Status'    => $status,
+                'rowColor'  => $rowColor,
+                'ExecuteOn' => (!isset($target->Type) || $target->Type === 0 /* Variable */) ? $this->Translate('Alert/OK') : ($target->AlarmStatus ? $this->Translate('Alert') : $this->Translate('OK'))
+            ];
         }
 
         return json_encode($formdata);
     }
 
-    private function triggerAlert($sourceID, $sourceValue)
+    public function UIUpdateList(int $Value)
+    {
+        $this->UpdateFormField('VariableID', 'visible', $Value === 0);
+        $this->UpdateFormField('Action', 'visible', $Value === 1);
+        $this->UpdateFormField('AlarmStatus', 'visible', $Value === 1);
+    }
+
+    public function UIGetTargetForm(IPSList $Values)
+    {
+        $type = $Values['Type'] ?? 0;
+        return [
+            [
+                'type' => 'RowLayout', 'items' => [
+                    [
+                        'type'     => 'Select',
+                        'caption'  => $this->Translate('Type'),
+                        'name'     => 'Type',
+                        'onChange' => 'ARM_UIUpdateList($id, $Type);',
+                        'options'  => [
+                            ['caption' => 'Variable', 'value' => 0],
+                            ['caption' => 'Action', 'value' => 1],
+                        ],
+                        'save' => true,
+                    ],
+                    [
+                        'type'    => 'Select',
+                        'caption' => $this->Translate('Execute on'),
+                        'name'    => 'AlarmStatus',
+                        'visible' => $type === 1, // Action
+                        'options' => [
+                            ['caption' => 'Alarm', 'value' => true],
+                            ['caption' => 'OK', 'value' => false],
+                        ]
+                    ],
+                ]
+            ],
+            [
+                'type'    => 'SelectVariable',
+                'caption' => $this->Translate('Variable'),
+                'name'    => 'VariableID',
+                'visible' => $type === 0, // Variable
+            ],
+            [
+                'type'    => 'SelectAction',
+                'caption' => 'Action',
+                'name'    => 'Action',
+                'visible' => $type === 1, // Action
+            ],
+
+        ];
+    }
+
+    public function UIUpdateNightAlarm(bool $NightAlarm)
+    {
+        $this->UpdateFormField('Sensors', 'columns.2.visible', $NightAlarm);
+        $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
+    }
+
+    public function TriggerDelayed()
+    {
+        $this->stopTriggerDelay();
+        $this->forceAlert(true);
+    }
+
+    // Sets the activation delay to 0 and hides the variable
+    public function StopActivateDelay()
+    {
+        $this->SetTimerInterval('Delay', 0);
+        $this->SetValue('DelayDisplay', 0);
+        IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
+    }
+
+    private function forceAlert(bool $Status, bool $force = false)
     {
 
-        //Only enable alarming if our module is active
-        if (!json_decode($this->GetBuffer('Active'))) {
+        // We only want to trigger the alarm once
+        // If alarm was set manually we always want to proceed
+        if ($Status == $this->GetValue('Alert') && !$force) {
             return;
         }
 
-        if ($this->getAlertValue($sourceID, $sourceValue)) {
-            $this->WriteAttributeInteger('LastAlert', $sourceID);
-            $this->SetAlert(true);
+        $this->SetValue('Alert', $Status);
+        $targets = json_decode($this->ReadPropertyString('Targets'));
+
+        // Let's notify all target devices
+        foreach ($targets as $target) {
+            // We only want to set the variable / execute the action if the status matches
+            if ($target->Type === 0) {
+                //only allow links
+                if (IPS_VariableExists($target->VariableID)) {
+                    $v = IPS_GetVariable($target->VariableID);
+                    $profileName = $this->GetProfileName($v);
+
+                    //If we somehow do not have a profile take care that we do not fail immediately
+                    $isReversed = $this->profileInverted($target->VariableID);
+                    if ($profileName != '') {
+                        $variableProfile = IPS_GetVariableProfile($profileName);
+                        //If we are enabling analog devices we want to switch to the maximum value (e.g. 100%)
+                        if ($Status != $isReversed) {
+                            $actionValue = $variableProfile['MaxValue'];
+                        } else {
+                            $actionValue = $variableProfile['MinValue'];
+                        }
+                        //Reduce to boolean if required
+
+                        if ($v['VariableType'] == 0) {
+                            $actionValue = $isReversed ? !$Status : $Status;
+                        }
+                    } else {
+                        $actionValue = $Status;
+                    }
+                    RequestAction($target->VariableID, $actionValue);
+                }
+            } else {
+                if ($target->AlarmStatus !== $Status) {
+                    continue;
+                }
+                $action = json_decode($target->Action, true);
+                IPS_RunAction($action['actionID'], $action['parameters']);
+            }
+        }
+    }
+
+    private function armed()
+    {
+        $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
+        $active = $this->GetValue('Active');
+        $delayExpired = $this->GetTimerInterval('Delay') === 0;
+        if (!$nightAlarm) {
+            return $active && $delayExpired;
+        } else {
+            return in_array($active, [2 /* Night */, 1 /* Away */]) && $delayExpired;
         }
     }
 
@@ -319,8 +481,12 @@ class Alerting extends IPSModule
         $sensors = json_decode($this->ReadPropertyString('Sensors'), true);
 
         $activeSensors = '';
+        $nightAlarm = $this->GetValue('Active') === 2 /* Night */;
         foreach ($sensors as $sensor) {
             $sensorID = $sensor['ID'];
+            if ($nightAlarm && !$sensor['NightAlarm']) {
+                continue;
+            }
             if ($this->getAlertValue($sensorID, GetValue($sensorID))) {
                 $activeSensors .= '- ' . IPS_GetLocation($sensorID) . "\n";
             }
@@ -334,25 +500,30 @@ class Alerting extends IPSModule
         IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
     }
 
-    private function startDelay()
+    private function startActivationDelay()
     {
-        //Display Delay
-        $this->SetBuffer('TimeActivated', json_encode(time() + $this->ReadPropertyInteger('ActivateDelay')));
-
-        //Unhide countdown and update it the first time
+        //Unhide countdown
         IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), false);
-        $this->UpdateDisplay();
+        $this->SetValue('DelayDisplay', time() + $this->ReadPropertyInteger('ActivateDelay'));
 
-        //Start timers for display update and activation
-        $this->SetTimerInterval('UpdateDisplay', 1000);
+        //Start timer for activation
         $this->SetTimerInterval('Delay', $this->ReadPropertyInteger('ActivateDelay') * 1000);
     }
 
-    private function stopDelay()
+    private function startTriggerDelay()
     {
-        $this->SetTimerInterval('Delay', 0);
-        $this->SetTimerInterval('UpdateDisplay', 0);
-        $this->SetValue('DelayDisplay', '00:00:00');
-        IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
+        //Unhide countdown
+        IPS_SetHidden($this->GetIDForIdent('TriggerDelayDisplay'), false);
+        $this->SetValue('TriggerDelayDisplay', time() + $this->ReadPropertyInteger('TriggerDelay'));
+
+        //Start timer for activation
+        $this->SetTimerInterval('TriggerDelay', $this->ReadPropertyInteger('TriggerDelay') * 1000);
+    }
+
+    private function stopTriggerDelay()
+    {
+        $this->SetTimerInterval('TriggerDelay', 0);
+        $this->SetValue('TriggerDelayDisplay', 0);
+        IPS_SetHidden($this->GetIDForIdent('TriggerDelayDisplay'), true);
     }
 }
