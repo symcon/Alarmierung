@@ -152,8 +152,14 @@ class Alerting extends IPSModule
         echo $this->Translate('Converting successful! Please reopen this configuration page. If everything is correct, all events and categories of this instance can be deleted');
     }
 
-    public function SetActive(bool $Value)
+    public function SetActive(mixed $Value)
     {
+        $this->SetValue($Ident, $Value);
+
+        if ($this->ReadPropertyBoolean('NightAlarm')) {
+            $Value = $this->SetActive(in_array($Value, [1/* Away */, 2 /* Night */]));
+        }
+
         if (!$Value) {
             $this->forceAlert(false);
             $this->stopTriggerDelay();
@@ -172,12 +178,7 @@ class Alerting extends IPSModule
     {
         switch ($Ident) {
             case 'Active':
-                $this->SetValue($Ident, $Value);
-                if ($this->ReadPropertyBoolean('NightAlarm')) {
-                    $this->SetActive(in_array($Value, [1/* Away */, 2 /* Night */]));
-                } else {
-                    $this->SetActive($Value);
-                }
+                $this->SetActive($Value);
                 break;
             case 'Alert':
                 $this->forceAlert($Value, true);
