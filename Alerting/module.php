@@ -154,7 +154,7 @@ class Alerting extends IPSModule
 
     public function SetActive(mixed $Value)
     {
-        $this->SetValue($Ident, $Value);
+        $this->SetValue('Active', $Value);
 
         if ($this->ReadPropertyBoolean('NightAlarm')) {
             $Value = $this->SetActive(in_array($Value, [1/* Away */, 2 /* Night */]));
