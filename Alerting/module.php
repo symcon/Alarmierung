@@ -156,8 +156,9 @@ class Alerting extends IPSModule
     {
         $this->SetValue('Active', $Value);
 
+        // Reduce night alarm to a simple alarm value
         if ($this->ReadPropertyBoolean('NightAlarm')) {
-            $Value = $this->SetActive(in_array($Value, [1/* Away */, 2 /* Night */]));
+            $Value = in_array($Value, [1/* Away */, 2 /* Night */]);
         }
 
         if (!$Value) {
