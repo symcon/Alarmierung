@@ -6,5 +6,5 @@
 
 Folgende Module beinhaltet das Alarmierung Repository:
 
-- __Alarmierung__ ([Dokumentation](https://www.symcon.de/de/service/dokumentation/modulreferenz/alarmierung))  
+- __Alarmierung__ ([Dokumentation](https://www.symcon.de/de/service/dokumentation/modulreferenz/alarmierung/))  
 	Beliebige Sensoren können als Auslöser für einen Alarm genutzt werden.
