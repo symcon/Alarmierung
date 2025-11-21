@@ -493,13 +493,9 @@ class Alerting extends IPSModule
                 $activeSensors .= '- ' . IPS_GetLocation($sensorID) . "\n";
             }
         }
-        if ($activeSensors == '') {
-            IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), true);
-            return;
-        }
 
         $this->SetValue('ActiveSensors', $activeSensors);
-        IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), false);
+        IPS_SetHidden($this->GetIDForIdent('ActiveSensors'), !$activeSensors);
     }
 
     private function startActivationDelay()
