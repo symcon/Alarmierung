@@ -110,18 +110,22 @@ class Alerting extends IPSModule
                 if ($sensor->ID == $SenderID) {
                     if ($nightActive && !$sensor->NightAlarm) {
                         return;
-                    } else {
-                        if ($this->getAlertValue($sensor->ID, $Data[0])) {
-                            $this->WriteAttributeInteger('LastAlert', $sensor->ID);
-                            if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
-                                $this->startTriggerDelay();
-                            } else {
-                                $this->forceAlert(true);
-                            }
-                        }
-                        $this->updateActive();
+                    }
+
+                    if (!IPS_VariableExists($sensor->ID)) {
                         return;
                     }
+
+                    if ($this->getAlertValue($sensor->ID, $Data[0])) {
+                        $this->WriteAttributeInteger('LastAlert', $sensor->ID);
+                        if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
+                            $this->startTriggerDelay();
+                        } else {
+                            $this->forceAlert(true);
+                        }
+                    }
+                    $this->updateActive();
+                    return;
                 }
             }
         }
@@ -462,6 +466,11 @@ class Alerting extends IPSModule
 
     private function getAlertValue($variableID, $value)
     {
+        // The external call should validate that the variable exists
+        // If we somehow end up here with a non existing variable, we can throw an error
+        if (!IPS_VariableExists($variableID)) {
+            throw new Exception('Variable does not exist');
+        }
         switch ($this->GetProfileName(IPS_GetVariable($variableID))) {
             case '~Window.Hoppe':
                 return ($value == 0) || ($value == 2);
@@ -486,6 +495,9 @@ class Alerting extends IPSModule
         $nightAlarm = $this->GetValue('Active') === 2 /* Night */;
         foreach ($sensors as $sensor) {
             $sensorID = $sensor['ID'];
+            if (!IPS_VariableExists($sensorID)) {
+                continue;
+            }
             if ($nightAlarm && !$sensor['NightAlarm']) {
                 continue;
             }
