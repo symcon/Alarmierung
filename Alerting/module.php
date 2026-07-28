@@ -478,6 +478,9 @@ class Alerting extends IPSModule
             case '~Window.HM':
                 return ($value == 1) || ($value == 2);
 
+            case '~EEP_F61000_WIN':
+                return ($value === 0) || ($value == 1) || ($value == 2);
+
             default:
                 if ($this->profileInverted($variableID)) {
                     return !boolval($value);
