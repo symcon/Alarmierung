@@ -3,7 +3,7 @@
         {
             "type": "CheckBox",
             "name": "NightAlarm",
-            "caption": "Activate support for night alarm",
+            "caption": "Activate support for night alarm and alarm when present",
             "onChange": "ARM_UIUpdateNightAlarm($id, $NightAlarm);"
         },
         {
@@ -39,6 +39,15 @@
                 {
                     "name": "NightAlarm",
                     "label": "Trigger at night",
+                    "width": "240",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "name": "PresenceAlarm",
+                    "label": "Trigger when present",
                     "width": "240",
                     "add": false,
                     "edit": {

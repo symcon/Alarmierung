@@ -76,10 +76,14 @@ class Alerting extends IPSModule
         $config = $original['configuration'];
         // Sensors
         $sensors = json_decode($config['Sensors'], true);
-        if (!empty($sensors) && !isset($sensors[0]['NightAlarm'])) {
+        if (!empty($sensors) && (!isset($sensors[0]['NightAlarm']) || !isset($sensors[0]['PresenceAlarm']))) {
             $newSensors = [];
             foreach ($sensors as $sensor) {
-                $newSensors[] = ['ID' => $sensor['ID'], 'NightAlarm' => true];
+                $newSensors[] = [
+                    'ID'            => $sensor['ID'],
+                    'NightAlarm'    => $sensor['NightAlarm'] ?? true,
+                    'PresenceAlarm' => $sensor['PresenceAlarm'] ?? false
+                ];
             }
             $config['Sensors'] = json_encode($newSensors);
         }
@@ -104,11 +108,9 @@ class Alerting extends IPSModule
 
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
         if ($this->armed()) {
-            $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
-            $nightActive = $nightAlarm ? ($this->GetValue('Active') === 2 /* Night */) : false;
             foreach ($sensors as $sensor) {
                 if ($sensor->ID == $SenderID) {
-                    if ($nightActive && !$sensor->NightAlarm) {
+                    if (!$this->sensorEnabled($sensor->NightAlarm ?? true, $sensor->PresenceAlarm ?? false)) {
                         return;
                     }
 
@@ -162,7 +164,7 @@ class Alerting extends IPSModule
 
         // Reduce night alarm to a simple alarm value
         if ($this->ReadPropertyBoolean('NightAlarm')) {
-            $Value = in_array($Value, [1/* Away */, 2 /* Night */]);
+            $Value = in_array($Value, [1/* Away */, 2 /* Night */]) || (($Value == 0 /* Stay */) && $this->hasPresenceSensors());
         }
 
         if (!$Value) {
@@ -211,10 +213,12 @@ class Alerting extends IPSModule
 
         $formdata = json_decode(file_get_contents(__DIR__ . '/form.json'));
 
-        // Hide night alarm column
+        // Hide night alarm and presence alarm column
         $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
         $formdata->elements[2]->columns[2]->visible = $nightAlarm;
         $formdata->elements[2]->columns[2]->edit->visible = $nightAlarm;
+        $formdata->elements[2]->columns[3]->visible = $nightAlarm;
+        $formdata->elements[2]->columns[3]->edit->visible = $nightAlarm;
 
         //Annotate existing elements
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
@@ -358,6 +362,8 @@ class Alerting extends IPSModule
     {
         $this->UpdateFormField('Sensors', 'columns.2.visible', $NightAlarm);
         $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
+        $this->UpdateFormField('Sensors', 'columns.3.visible', $NightAlarm);
+        $this->UpdateFormField('Sensors', 'columns.3.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
     public function TriggerDelayed()
@@ -433,8 +439,42 @@ class Alerting extends IPSModule
         if (!$nightAlarm) {
             return $active && $delayExpired;
         } else {
+            // While being present we are only armed if at least one sensor should trigger in that state
+            if ($active === 0 /* Stay */) {
+                return $this->hasPresenceSensors() && $delayExpired;
+            }
             return in_array($active, [2 /* Night */, 1 /* Away */]) && $delayExpired;
         }
+    }
+
+    // Checks if a sensor should be considered for the current value of the Active variable
+    private function sensorEnabled(bool $NightAlarm, bool $PresenceAlarm)
+    {
+        if (!$this->ReadPropertyBoolean('NightAlarm')) {
+            return true;
+        }
+
+        switch ($this->GetValue('Active')) {
+            case 0: // Stay
+                return $PresenceAlarm;
+
+            case 2: // Night
+                return $NightAlarm;
+
+            default: // Away
+                return true;
+        }
+    }
+
+    private function hasPresenceSensors()
+    {
+        foreach (json_decode($this->ReadPropertyString('Sensors'), true) as $sensor) {
+            if ($sensor['PresenceAlarm'] ?? false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function convertLinksToTargetIDArray($CategoryIdent)
@@ -495,13 +535,12 @@ class Alerting extends IPSModule
         $sensors = json_decode($this->ReadPropertyString('Sensors'), true);
 
         $activeSensors = '';
-        $nightAlarm = $this->GetValue('Active') === 2 /* Night */;
         foreach ($sensors as $sensor) {
             $sensorID = $sensor['ID'];
             if (!IPS_VariableExists($sensorID)) {
                 continue;
             }
-            if ($nightAlarm && !$sensor['NightAlarm']) {
+            if (!$this->sensorEnabled($sensor['NightAlarm'] ?? true, $sensor['PresenceAlarm'] ?? false)) {
                 continue;
             }
             if ($this->getAlertValue($sensorID, GetValue($sensorID))) {
