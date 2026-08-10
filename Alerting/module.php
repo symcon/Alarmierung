@@ -62,7 +62,9 @@ class Alerting extends IPSModule
             $this->RegisterReference($target->VariableID);
         }
         foreach ($sensors as $sensor) {
-            $this->RegisterMessage($sensor->ID, VM_UPDATE);
+            if ($sensor->Active ?? true) {
+                $this->RegisterMessage($sensor->ID, VM_UPDATE);
+            }
             $this->RegisterReference($sensor->ID);
         }
     }
@@ -76,10 +78,11 @@ class Alerting extends IPSModule
         $config = $original['configuration'];
         // Sensors
         $sensors = json_decode($config['Sensors'], true);
-        if (!empty($sensors) && (!isset($sensors[0]['NightAlarm']) || !isset($sensors[0]['PresenceAlarm']))) {
+        if (!empty($sensors) && (!isset($sensors[0]['NightAlarm']) || !isset($sensors[0]['PresenceAlarm']) || !isset($sensors[0]['Active']))) {
             $newSensors = [];
             foreach ($sensors as $sensor) {
                 $newSensors[] = [
+                    'Active'        => $sensor['Active'] ?? true,
                     'ID'            => $sensor['ID'],
                     'NightAlarm'    => $sensor['NightAlarm'] ?? true,
                     'PresenceAlarm' => $sensor['PresenceAlarm'] ?? false
@@ -94,6 +97,14 @@ class Alerting extends IPSModule
             $newTargets = [];
             foreach ($targets as $target) {
                 $newTargets[] = ['VariableID' => $target['ID'], 'Type' => 0 /* Variable */];
+            }
+            $targets = $newTargets;
+            $config['Targets'] = json_encode($newTargets);
+        }
+        if (!empty($targets) && !isset($targets[0]['Active'])) {
+            $newTargets = [];
+            foreach ($targets as $target) {
+                $newTargets[] = array_merge(['Active' => true], $target);
             }
             $config['Targets'] = json_encode($newTargets);
         }
@@ -110,6 +121,10 @@ class Alerting extends IPSModule
         if ($this->armed()) {
             foreach ($sensors as $sensor) {
                 if ($sensor->ID == $SenderID) {
+                    if (!($sensor->Active ?? true)) {
+                        return;
+                    }
+
                     if (!$this->sensorEnabled($sensor->NightAlarm ?? true, $sensor->PresenceAlarm ?? false)) {
                         return;
                     }
@@ -215,10 +230,10 @@ class Alerting extends IPSModule
 
         // Hide night alarm and presence alarm column
         $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
-        $formdata->elements[2]->columns[2]->visible = $nightAlarm;
-        $formdata->elements[2]->columns[2]->edit->visible = $nightAlarm;
         $formdata->elements[2]->columns[3]->visible = $nightAlarm;
         $formdata->elements[2]->columns[3]->edit->visible = $nightAlarm;
+        $formdata->elements[2]->columns[4]->visible = $nightAlarm;
+        $formdata->elements[2]->columns[4]->edit->visible = $nightAlarm;
 
         //Annotate existing elements
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
@@ -318,6 +333,11 @@ class Alerting extends IPSModule
         $type = $Values['Type'] ?? 0;
         return [
             [
+                'type' => 'CheckBox',
+                'caption' => 'Active',
+                'name' => 'Active'
+            ],
+            [
                 'type' => 'RowLayout', 'items' => [
                     [
                         'type'     => 'Select',
@@ -360,10 +380,10 @@ class Alerting extends IPSModule
 
     public function UIUpdateNightAlarm(bool $NightAlarm)
     {
-        $this->UpdateFormField('Sensors', 'columns.2.visible', $NightAlarm);
-        $this->UpdateFormField('Sensors', 'columns.2.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
         $this->UpdateFormField('Sensors', 'columns.3.visible', $NightAlarm);
         $this->UpdateFormField('Sensors', 'columns.3.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
+        $this->UpdateFormField('Sensors', 'columns.4.visible', $NightAlarm);
+        $this->UpdateFormField('Sensors', 'columns.4.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
     public function TriggerDelayed()
@@ -394,6 +414,10 @@ class Alerting extends IPSModule
 
         // Let's notify all target devices
         foreach ($targets as $target) {
+            if (!($target->Active ?? true)) {
+                continue;
+            }
+
             // We only want to set the variable / execute the action if the status matches
             if ($target->Type === 0) {
                 //only allow links
@@ -469,6 +493,9 @@ class Alerting extends IPSModule
     private function hasPresenceSensors()
     {
         foreach (json_decode($this->ReadPropertyString('Sensors'), true) as $sensor) {
+            if (!($sensor['Active'] ?? true)) {
+                continue;
+            }
             if ($sensor['PresenceAlarm'] ?? false) {
                 return true;
             }
@@ -536,6 +563,9 @@ class Alerting extends IPSModule
 
         $activeSensors = '';
         foreach ($sensors as $sensor) {
+            if (!($sensor['Active'] ?? true)) {
+                continue;
+            }
             $sensorID = $sensor['ID'];
             if (!IPS_VariableExists($sensorID)) {
                 continue;

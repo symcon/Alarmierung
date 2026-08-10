@@ -22,6 +22,15 @@
             },
             "columns": [
                 {
+                    "name": "Active",
+                    "caption": "Active",
+                    "width": "100",
+                    "add": true,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
                     "name": "ID",
                     "caption": "Variable",
                     "width": "auto",
@@ -80,6 +89,15 @@
             },
             "form": "return ARM_UIGetTargetForm($id, $Targets);",
             "columns": [
+                {
+                    "name": "Active",
+                    "caption": "Active",
+                    "width": "100",
+                    "add": true,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
                 {
                     "name": "Name",
                     "caption": "Target",
