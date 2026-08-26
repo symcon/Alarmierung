@@ -175,7 +175,11 @@ class Alerting extends IPSModule
 
     public function SetActive(mixed $Value)
     {
+        $modeChanged = $this->GetValue('Active') != $Value;
         $this->SetValue('Active', $Value);
+
+        //Which sensors are considered depends on the mode
+        $this->updateActive();
 
         // Reduce night alarm to a simple alarm value
         if ($this->ReadPropertyBoolean('NightAlarm')) {
@@ -189,10 +193,25 @@ class Alerting extends IPSModule
             return;
         }
 
+        // Changing the mode always aborts a running trigger delay. Otherwise the alarm
+        // would still be triggered although the user reacted within the delay, e.g. by
+        // switching to 'Stay' after entering the house while presence sensors keep the
+        // instance armed. Sensors which are still in alarm state are picked up again as
+        // soon as the new mode is armed
+        if ($modeChanged) {
+            $this->stopTriggerDelay();
+        }
+
         if ($this->ReadPropertyInteger('ActivateDelay') > 0) {
             if ($this->GetTimerInterval('Delay') === 0) {
                 $this->startActivationDelay();
             }
+            return;
+        }
+
+        // Without an activation delay the new mode is armed immediately
+        if ($modeChanged) {
+            $this->checkSensors();
         }
     }
 
@@ -398,6 +417,8 @@ class Alerting extends IPSModule
         $this->SetTimerInterval('Delay', 0);
         $this->SetValue('DelayDisplay', 0);
         IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
+
+        $this->checkSensors();
     }
 
     private function forceAlert(bool $Status, bool $force = false)
@@ -490,6 +511,49 @@ class Alerting extends IPSModule
         }
     }
 
+    // Returns the IDs of all sensors which are currently in alarm state and considered for the current value of the Active variable
+    private function alertingSensors()
+    {
+        $alertingSensors = [];
+        foreach (json_decode($this->ReadPropertyString('Sensors'), true) as $sensor) {
+            if (!($sensor['Active'] ?? true)) {
+                continue;
+            }
+            $sensorID = $sensor['ID'];
+            if (!IPS_VariableExists($sensorID)) {
+                continue;
+            }
+            if (!$this->sensorEnabled($sensor['NightAlarm'] ?? true, $sensor['PresenceAlarm'] ?? false)) {
+                continue;
+            }
+            if ($this->getAlertValue($sensorID, GetValue($sensorID))) {
+                $alertingSensors[] = $sensorID;
+            }
+        }
+
+        return $alertingSensors;
+    }
+
+    // Triggers the alarm if a sensor is already in alarm state while the instance gets armed
+    private function checkSensors()
+    {
+        if (!$this->armed()) {
+            return;
+        }
+
+        $alertingSensors = $this->alertingSensors();
+        if (empty($alertingSensors)) {
+            return;
+        }
+
+        $this->WriteAttributeInteger('LastAlert', $alertingSensors[0]);
+        if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
+            $this->startTriggerDelay();
+        } else {
+            $this->forceAlert(true);
+        }
+    }
+
     private function hasPresenceSensors()
     {
         foreach (json_decode($this->ReadPropertyString('Sensors'), true) as $sensor) {
@@ -559,23 +623,9 @@ class Alerting extends IPSModule
 
     private function updateActive()
     {
-        $sensors = json_decode($this->ReadPropertyString('Sensors'), true);
-
         $activeSensors = '';
-        foreach ($sensors as $sensor) {
-            if (!($sensor['Active'] ?? true)) {
-                continue;
-            }
-            $sensorID = $sensor['ID'];
-            if (!IPS_VariableExists($sensorID)) {
-                continue;
-            }
-            if (!$this->sensorEnabled($sensor['NightAlarm'] ?? true, $sensor['PresenceAlarm'] ?? false)) {
-                continue;
-            }
-            if ($this->getAlertValue($sensorID, GetValue($sensorID))) {
-                $activeSensors .= '- ' . IPS_GetLocation($sensorID) . "\n";
-            }
+        foreach ($this->alertingSensors() as $sensorID) {
+            $activeSensors .= '- ' . IPS_GetLocation($sensorID) . "\n";
         }
 
         $this->SetValue('ActiveSensors', $activeSensors);
