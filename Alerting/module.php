@@ -547,7 +547,7 @@ class Alerting extends IPSModule
             return;
         }
 
-        $this->WriteAttributeInteger('LastAlert', $alertingSensors[0]);
+        $this->WriteAttributeInteger('LastAlert', $alertingSensors[0]['ID']);
         if ($this->ReadPropertyInteger('TriggerDelay') > 0) {
             $this->startTriggerDelay();
         } else {
