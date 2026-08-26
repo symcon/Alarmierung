@@ -78,12 +78,13 @@ class Alerting extends IPSModule
         $config = $original['configuration'];
         // Sensors
         $sensors = json_decode($config['Sensors'], true);
-        if (!empty($sensors) && (!isset($sensors[0]['NightAlarm']) || !isset($sensors[0]['PresenceAlarm']) || !isset($sensors[0]['Active']))) {
+        if (!empty($sensors) && (!isset($sensors[0]['NightAlarm']) || !isset($sensors[0]['PresenceAlarm']) || !isset($sensors[0]['Active']) || !isset($sensors[0]['Name']))) {
             $newSensors = [];
             foreach ($sensors as $sensor) {
                 $newSensors[] = [
                     'Active'        => $sensor['Active'] ?? true,
                     'ID'            => $sensor['ID'],
+                    'Name'          => $sensor['Name'] ?? '',
                     'NightAlarm'    => $sensor['NightAlarm'] ?? true,
                     'PresenceAlarm' => $sensor['PresenceAlarm'] ?? false
                 ];
@@ -249,10 +250,10 @@ class Alerting extends IPSModule
 
         // Hide night alarm and presence alarm column
         $nightAlarm = $this->ReadPropertyBoolean('NightAlarm');
-        $formdata->elements[2]->columns[3]->visible = $nightAlarm;
-        $formdata->elements[2]->columns[3]->edit->visible = $nightAlarm;
         $formdata->elements[2]->columns[4]->visible = $nightAlarm;
         $formdata->elements[2]->columns[4]->edit->visible = $nightAlarm;
+        $formdata->elements[2]->columns[5]->visible = $nightAlarm;
+        $formdata->elements[2]->columns[5]->edit->visible = $nightAlarm;
 
         //Annotate existing elements
         $sensors = json_decode($this->ReadPropertyString('Sensors'));
@@ -399,10 +400,10 @@ class Alerting extends IPSModule
 
     public function UIUpdateNightAlarm(bool $NightAlarm)
     {
-        $this->UpdateFormField('Sensors', 'columns.3.visible', $NightAlarm);
-        $this->UpdateFormField('Sensors', 'columns.3.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
         $this->UpdateFormField('Sensors', 'columns.4.visible', $NightAlarm);
         $this->UpdateFormField('Sensors', 'columns.4.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
+        $this->UpdateFormField('Sensors', 'columns.5.visible', $NightAlarm);
+        $this->UpdateFormField('Sensors', 'columns.5.edit', json_encode(['type' => 'CheckBox', 'visible' => $NightAlarm]));
     }
 
     public function TriggerDelayed()
@@ -511,7 +512,7 @@ class Alerting extends IPSModule
         }
     }
 
-    // Returns the IDs of all sensors which are currently in alarm state and considered for the current value of the Active variable
+    // Returns all sensors which are currently in alarm state and considered for the current value of the Active variable
     private function alertingSensors()
     {
         $alertingSensors = [];
@@ -527,7 +528,7 @@ class Alerting extends IPSModule
                 continue;
             }
             if ($this->getAlertValue($sensorID, GetValue($sensorID))) {
-                $alertingSensors[] = $sensorID;
+                $alertingSensors[] = $sensor;
             }
         }
 
@@ -624,8 +625,13 @@ class Alerting extends IPSModule
     private function updateActive()
     {
         $activeSensors = '';
-        foreach ($this->alertingSensors() as $sensorID) {
-            $activeSensors .= '- ' . IPS_GetLocation($sensorID) . "\n";
+        foreach ($this->alertingSensors() as $sensor) {
+            if ($sensor['Name']) {
+                $activeSensors .= '- ' . $sensor['Name'] . "\n";
+            }
+            else {
+                $activeSensors .= '- ' . IPS_GetLocation($sensor['ID']) . "\n";
+            }
         }
 
         $this->SetValue('ActiveSensors', $activeSensors);

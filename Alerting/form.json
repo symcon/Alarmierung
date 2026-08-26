@@ -40,6 +40,15 @@
                     }
                 },
                 {
+                    "name": "Name",
+                    "caption": "Name (optional)",
+                    "width": "200",
+                    "add": "",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
                     "name": "Status",
                     "label": "Status",
                     "width": "120",

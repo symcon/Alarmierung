@@ -19,6 +19,7 @@
             "Seconds": "Sekunden",
             "Activation Delay": "Einschaltverzögerung",
             "Variable": "Variable",
+            "Name (optional)": "Name (optional)",
             "Alerting": "Alarmierung",
             "Trigger at night": "Bei Nacht auslösen",
             "Trigger when present": "Bei Anwesenheit auslösen",
