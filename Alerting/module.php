@@ -209,11 +209,6 @@ class Alerting extends IPSModule
             }
             return;
         }
-
-        // Without an activation delay the new mode is armed immediately
-        if ($modeChanged) {
-            $this->checkSensors();
-        }
     }
 
     public function RequestAction($Ident, $Value)
@@ -418,8 +413,6 @@ class Alerting extends IPSModule
         $this->SetTimerInterval('Delay', 0);
         $this->SetValue('DelayDisplay', 0);
         IPS_SetHidden($this->GetIDForIdent('DelayDisplay'), true);
-
-        $this->checkSensors();
     }
 
     private function forceAlert(bool $Status, bool $force = false)
