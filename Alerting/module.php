@@ -348,12 +348,13 @@ class Alerting extends IPSModule
         $type = $Values['Type'] ?? 0;
         return [
             [
-                'type' => 'CheckBox',
+                'type'    => 'CheckBox',
                 'caption' => 'Active',
-                'name' => 'Active'
+                'name'    => 'Active'
             ],
             [
-                'type' => 'RowLayout', 'items' => [
+                'type'  => 'RowLayout',
+                'items' => [
                     [
                         'type'     => 'Select',
                         'caption'  => $this->Translate('Type'),
