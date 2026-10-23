@@ -15,6 +15,7 @@
             "name": "Sensors",
             "caption": "Sensorvariables",
             "add": true,
+            "multiAdd": true,
             "delete": true,
             "sort": {
                 "column": "ID",
